@@ -1,0 +1,102 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile inside the system",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "username": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string" },
+        "balance": { "type": "number" },
+        "status": { "type": "string" },
+        "apiKey": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "username", "email", "role", "balance", "status", "apiKey", "createdAt"]
+    },
+    "Order": {
+      "title": "SMM Order",
+      "description": "Placed order for SMM services",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "serviceId": { "type": "string" },
+        "link": { "type": "string" },
+        "quantity": { "type": "integer" },
+        "charge": { "type": "number" },
+        "startCount": { "type": "integer" },
+        "remains": { "type": "integer" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "serviceId", "link", "quantity", "charge", "startCount", "remains", "status", "createdAt"]
+    },
+    "Ticket": {
+      "title": "Support Ticket",
+      "description": "Support issues submitted by clients",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "subject": { "type": "string" },
+        "message": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "subject", "message", "status", "createdAt"]
+    },
+    "Transaction": {
+      "title": "Financial Transaction",
+      "description": "Deposit transactions to user wallets",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "method": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "amount", "method", "status", "createdAt"]
+    },
+    "Notification": {
+      "title": "Client Notification",
+      "description": "Realtime notification messages",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "title", "message", "read", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "#/entities/User",
+      "description": "SMM user accounts"
+    },
+    "/orders/{orderId}": {
+      "schema": "#/entities/Order",
+      "description": "SMM orders placed by users"
+    },
+    "/tickets/{ticketId}": {
+      "schema": "#/entities/Ticket",
+      "description": "User support tickets"
+    },
+    "/transactions/{transactionId}": {
+      "schema": "#/entities/Transaction",
+      "description": "Wallet addition transaction ledger"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "#/entities/Notification",
+      "description": "User system and broadcast notifications"
+    }
+  }
+}

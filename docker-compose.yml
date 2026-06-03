@@ -1,0 +1,17 @@
+services:
+  mk-smm-panel:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mk_smm_panel_app
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./database_store.json:/app/database_store.json
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - JWT_SECRET=mk-smm-super-secret-jwt-key-2026
+      # Define Firebase Config and Gemini Keys as environment variables securely
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    restart: always

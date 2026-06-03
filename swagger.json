@@ -1,0 +1,315 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "MK SMM Panel REST API Documentation",
+    "description": "Programmatic Gateway interface to control orders, fetch service categories, track payments, claim referral commissions, and communicate with support desks. Authenticate utilizing JWT Bearer Token headers or your unique Developer authorize key.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "MK SMM Support Desk",
+      "email": "support@mksmm.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Local test sandbox"
+    }
+  ],
+  "paths": {
+    "/api/auth/register": {
+      "post": {
+        "summary": "Register a new User Profile",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["username", "email", "password"],
+                "properties": {
+                  "username": { "type": "string", "example": "meraj_khan_310" },
+                  "email": { "type": "string", "example": "itxmerajkhan3109@gmail.com" },
+                  "password": { "type": "string", "example": "securePassword123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": { "type": "string", "example": "eyJhbGciOiJIUzI1NiIsIn..." },
+                    "user": { "$ref": "#/components/schemas/User" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Invalid input or username/email already taken" }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "summary": "Authenticate User / Get JWT Token",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["usernameOrEmail", "password"],
+                "properties": {
+                  "usernameOrEmail": { "type": "string", "example": "meraj_khan_310" },
+                  "password": { "type": "string", "example": "securePassword123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authenticated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": { "type": "string", "example": "eyJhbGciOiJIUzI1NiIsIn..." },
+                    "user": { "$ref": "#/components/schemas/User" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Invalid credentials or password matching failed" }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "summary": "Fetch Active Authenticated User Details",
+        "tags": ["Profile"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Current Profile Details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": { "$ref": "#/components/schemas/User" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Authorization token missing or invalid" }
+        }
+      }
+    },
+    "/api/services": {
+      "get": {
+        "summary": "Retrieve Service catalogs",
+        "tags": ["Catalog Services"],
+        "responses": {
+          "200": {
+            "description": "Array of active SMM service metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Service" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orders": {
+      "get": {
+        "summary": "Retrieve active purchase orders",
+        "tags": ["Orders"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "List of active metrics checkout campaigns",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Order" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Checkout a standard new order",
+        "tags": ["Orders"],
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["serviceId", "link", "quantity"],
+                "properties": {
+                  "serviceId": { "type": "string", "example": "s1" },
+                  "link": { "type": "string", "example": "https://instagram.com/p/Co19x..." },
+                  "quantity": { "type": "integer", "example": 1000 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Order submitted and balance reserved successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Order" }
+              }
+            }
+          },
+          "400": { "description": "Insufficient wallet balance, or violation of limits specification" }
+        }
+      }
+    },
+    "/api/orders/place": {
+      "post": {
+        "summary": "Programmatic order checkout for external resellers",
+        "tags": ["Orders"],
+        "security": [{ "ApikeyAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["serviceId", "link", "quantity"],
+                "properties": {
+                  "serviceId": { "type": "string", "example": "s2" },
+                  "link": { "type": "string", "example": "https://youtube.com/watch?v=..." },
+                  "quantity": { "type": "integer", "example": 2500 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Order dispatched dynamically via API Key Auth",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Order" }
+              }
+            }
+          },
+          "403": { "description": "Invalid authorization token" }
+        }
+      }
+    },
+    "/api/referrals/stats": {
+      "get": {
+        "summary": "Retrieve user-specific reseller partner stats",
+        "tags": ["Affiliates"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Summary coordinates, referral count, and commissions archives",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "referralCount": { "type": "integer", "example": 5 },
+                    "totalEarnings": { "type": "number", "example": 12.5 },
+                    "referredUsers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "referredUsername": { "type": "string", "example": "khan_reseller" },
+                          "createdAt": { "type": "string", "example": "2026-06-03T07:15:23Z" },
+                          "commissionsEarned": { "type": "number", "example": 12.5 }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "ApikeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization"
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "example": "u1" },
+          "username": { "type": "string", "example": "meraj_khan_310" },
+          "email": { "type": "string", "example": "itxmerajkhan3109@gmail.com" },
+          "role": { "type": "string", "enum": ["superadmin", "admin", "user"], "example": "user" },
+          "balance": { "type": "number", "example": 25.0 },
+          "apiKey": { "type": "string", "example": "mk_key_a8d79f04123..." },
+          "createdAt": { "type": "string", "example": "2026-06-03T07:15:23Z" }
+        }
+      },
+      "Service": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "example": "s1" },
+          "category": { "type": "string", "example": "Instagram" },
+          "name": { "type": "string", "example": "Instagram Real Active Followers" },
+          "rate": { "type": "number", "example": 1.25 },
+          "min": { "type": "integer", "example": 50 },
+          "max": { "type": "integer", "example": 10000 },
+          "description": { "type": "string", "example": "High quality followers, dropped offset guaranteed" }
+        }
+      },
+      "Order": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "example": "o_102" },
+          "userId": { "type": "string", "example": "u1" },
+          "serviceId": { "type": "string", "example": "s1" },
+          "serviceName": { "type": "string", "example": "Instagram Real Active Followers" },
+          "link": { "type": "string", "example": "https://instagram.com/myaccount" },
+          "quantity": { "type": "integer", "example": 1000 },
+          "charge": { "type": "number", "example": 1.25 },
+          "startCount": { "type": "integer", "example": 450 },
+          "remains": { "type": "integer", "example": 1000 },
+          "status": { "type": "string", "enum": ["pending", "processing", "in_progress", "completed", "canceled"], "example": "pending" },
+          "createdAt": { "type": "string", "example": "2026-06-03T07:15:23Z" }
+        }
+      }
+    }
+  }
+}

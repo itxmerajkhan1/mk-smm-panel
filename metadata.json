@@ -1,0 +1,6 @@
+{
+  "name": "MK SMM Panel",
+  "description": "A premium, enterprise-grade Social Media Marketing (SMM) Panel with user and admin dashboards, service marketplace, real-time order tracking, deposit simulation, and ticket support.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
