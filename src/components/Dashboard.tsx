@@ -136,19 +136,28 @@ export default function Dashboard({
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   // Load services list
-  const fetchServices = async () => {
+  const fetchServices = async (forceRefetch = false) => {
+    if (services.length > 0 && !forceRefetch) return;
+    if (loadingServices) return;
     setLoadingServices(true);
     try {
       const res = await fetch('/api/services');
       const data = await res.json();
       if (Array.isArray(data)) {
-        setServices(data.filter(s => s.active));
+        const activeServices = data.filter(s => s.active);
+        setServices(activeServices);
         
         // Extract unique categories
-        const uniqCats = Array.from(new Set(data.filter(s => s.active).map(s => s.category)));
-        setCategories(uniqCats);
-        if (uniqCats.length > 0 && !selectedCategory) {
-          setSelectedCategory(uniqCats[0]);
+        const uniqCats = Array.from(new Set(activeServices.map(s => s.category)));
+        setCategories(prev => {
+          if (JSON.stringify(prev) === JSON.stringify(uniqCats)) return prev;
+          return uniqCats;
+        });
+        if (uniqCats.length > 0) {
+          setSelectedCategory(prev => {
+            if (prev && uniqCats.includes(prev)) return prev;
+            return uniqCats[0];
+          });
         }
       }
     } catch (e) {
@@ -230,8 +239,8 @@ export default function Dashboard({
   };
 
   // Refresh all state context
-  const refreshAllState = () => {
-    fetchServices();
+  const refreshAllState = (forceRefetch = false) => {
+    fetchServices(forceRefetch);
     fetchOrders();
     fetchTickets();
     fetchTransactions();
@@ -247,12 +256,17 @@ export default function Dashboard({
 
   // Effect: watch category to filter services
   useEffect(() => {
-    if (selectedCategory) {
+    if (selectedCategory && services.length > 0) {
       const filtered = services.filter(s => s.category === selectedCategory);
-      setFilteredServices(filtered);
+      setFilteredServices(prev => {
+        if (JSON.stringify(prev) === JSON.stringify(filtered)) return prev;
+        return filtered;
+      });
       if (filtered.length > 0) {
-        setSelectedServiceId(filtered[0].id);
-        setSelectedService(filtered[0]);
+        setSelectedServiceId(prev => {
+          if (filtered.some(s => s.id === prev)) return prev;
+          return filtered[0].id;
+        });
       } else {
         setSelectedServiceId('');
         setSelectedService(null);
@@ -262,14 +276,17 @@ export default function Dashboard({
 
   // Effect: watch service selection to reset bounds and limits instructions
   useEffect(() => {
-    if (selectedServiceId) {
+    if (selectedServiceId && services.length > 0) {
       const found = services.find(s => s.id === selectedServiceId);
       if (found) {
-        setSelectedService(found);
+        setSelectedService(prev => {
+          if (prev && prev.id === found.id && prev.rate === found.rate && prev.min === found.min && prev.max === found.max) return prev;
+          return found;
+        });
         calculateEstimatedCharge(quantity, found);
       }
     }
-  }, [selectedServiceId]);
+  }, [selectedServiceId, services]);
 
   // Handle outside balance trigger
   useEffect(() => {
@@ -732,7 +749,7 @@ export default function Dashboard({
               </p>
             </div>
             <button 
-              onClick={refreshAllState}
+              onClick={() => refreshAllState(true)}
               className="flex items-center gap-1.5 rounded-lg border border-zinc-850 bg-zinc-900 px-4 py-2 text-xs font-bold uppercase text-white hover:bg-zinc-800 transition-all self-start cursor-pointer"
             >
               <RefreshCw className="h-3.5 w-3.5" />
@@ -946,7 +963,7 @@ export default function Dashboard({
                   </p>
                 </div>
                 <button 
-                  onClick={refreshAllState}
+                  onClick={() => refreshAllState(true)}
                   className="rounded-lg p-2 bg-zinc-900 border border-zinc-850 text-zinc-400 hover:text-white"
                   title="Synchronize Database Stats"
                 >
@@ -977,12 +994,22 @@ export default function Dashboard({
                   <select
                     id="order-category-select"
                     value={selectedCategory}
-                    onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="mt-1.5 w-full rounded-lg border border-zinc-850 bg-black px-3.5 py-3 text-sm text-white outline-none focus:border-blue-550"
+                    disabled={loadingServices}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSelectedCategory(val);
+                    }}
+                    className="mt-1.5 w-full rounded-lg border border-zinc-850 bg-black px-3.5 py-3 text-sm text-white outline-none focus:border-blue-550 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {categories.map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
+                    {loadingServices ? (
+                      <option>Loading SMM Database Catalogs...</option>
+                    ) : categories.length === 0 ? (
+                      <option>No Categories Available</option>
+                    ) : (
+                      categories.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))
+                    )}
                   </select>
                 </div>
 
@@ -994,14 +1021,24 @@ export default function Dashboard({
                   <select
                     id="order-service-select"
                     value={selectedServiceId}
-                    onChange={(e) => setSelectedServiceId(e.target.value)}
-                    className="mt-1.5 w-full rounded-lg border border-zinc-850 bg-black px-3.5 py-3 text-sm text-white outline-none focus:border-blue-550"
+                    disabled={loadingServices || filteredServices.length === 0}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSelectedServiceId(val);
+                    }}
+                    className="mt-1.5 w-full rounded-lg border border-zinc-850 bg-black px-3.5 py-3 text-sm text-white outline-none focus:border-blue-550 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {filteredServices.map(svc => (
-                      <option key={svc.id} value={svc.id}>
-                        {svc.name} — {formatCurrency(convertCurrency(svc.rate, 'USD', currency), currency)} / 1000 items
-                      </option>
-                    ))}
+                    {loadingServices ? (
+                      <option>Loading acceleration nodes...</option>
+                    ) : filteredServices.length === 0 ? (
+                      <option>No Services Available Under Category</option>
+                    ) : (
+                      filteredServices.map(svc => (
+                        <option key={svc.id} value={svc.id}>
+                          {svc.name} — {formatCurrency(convertCurrency(svc.rate, 'USD', currency), currency)} / 1000 items
+                        </option>
+                      ))
+                    )}
                   </select>
                 </div>
 
@@ -2468,7 +2505,7 @@ export default function Dashboard({
               </p>
             </div>
             <button 
-              onClick={refreshAllState}
+              onClick={() => refreshAllState(true)}
               className="flex items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-zinc-855 bg-zinc-100 dark:bg-zinc-900 px-4 py-2 text-xs font-bold uppercase text-zinc-805 dark:text-white hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-all self-start cursor-pointer"
             >
               <RefreshCw className="h-3.5 w-3.5" />
