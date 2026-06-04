@@ -23,7 +23,11 @@ service cloud.firestore {
                request.auth.token.email == "admin@mksmm.com"
              ) &&
              exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+             (
+               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin" ||
+               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "ACTIVE / ADMIN PLAN" ||
+               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "superadmin"
+             );
     }
 
     // Standard string and ID validity checker
@@ -36,7 +40,7 @@ service cloud.firestore {
       return data.id is string && data.id.size() <= 128 &&
              data.username is string && data.username.size() <= 128 &&
              data.email is string && data.email.size() <= 128 &&
-             data.role is string && (data.role == 'admin' || data.role == 'user' || data.role == 'superadmin') &&
+             data.role is string && (data.role == 'admin' || data.role == 'user' || data.role == 'superadmin' || data.role == 'ACTIVE / ADMIN PLAN') &&
              data.balance is number && data.balance >= 0.0 &&
              data.status is string && (data.status == 'active' || data.status == 'suspended') &&
              data.apiKey is string && data.apiKey.size() <= 128 &&
@@ -52,7 +56,7 @@ service cloud.firestore {
         isSignedIn() && isOwner(userId) && isValidUser(request.resource.data) && 
         (
           (request.auth.token.email == "itxmerajkhan3109@gmail.com" || request.auth.token.email == "admin@mksmm.com") ? 
-          request.resource.data.role == 'admin' : 
+          (request.resource.data.role == 'admin' || request.resource.data.role == 'ACTIVE / ADMIN PLAN') : 
           request.resource.data.role == 'user'
         ) && 
         request.resource.data.balance == 0.0

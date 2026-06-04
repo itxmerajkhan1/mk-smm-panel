@@ -107,7 +107,7 @@ export default function App() {
     if (loadingProfile) return;
 
     if (firebaseUser && userProfile) {
-      const isAdmin = userProfile.role === 'admin' || userProfile.role === 'superadmin';
+      const isAdmin = userProfile.role === 'admin' || userProfile.role === 'superadmin' || userProfile.role === 'ACTIVE / ADMIN PLAN';
       
       if (isAdmin) {
         if (currentPath === '/' || currentPath === '/dashboard' || currentPath === '/login' || currentPath === '/admin/login') {
@@ -142,7 +142,7 @@ export default function App() {
   // Sync state tab to URL
   useEffect(() => {
     if (!firebaseUser || !userProfile) return;
-    const isAdmin = userProfile.role === 'admin' || userProfile.role === 'superadmin';
+    const isAdmin = userProfile.role === 'admin' || userProfile.role === 'superadmin' || userProfile.role === 'ACTIVE / ADMIN PLAN';
     if (isAdmin && activeTab === 'admin') {
       if (currentPath !== '/admin/dashboard') {
         navigate('/admin/dashboard');
@@ -172,7 +172,7 @@ export default function App() {
   }
 
   const isLogged = firebaseUser && userProfile;
-  const isAdminUser = userProfile && (userProfile.role === 'admin' || userProfile.role === 'superadmin');
+  const isAdminUser = userProfile && (userProfile.role === 'admin' || userProfile.role === 'superadmin' || userProfile.role === 'ACTIVE / ADMIN PLAN');
 
   // Unified responsive sidebar items list
   const sidebarTabs = [

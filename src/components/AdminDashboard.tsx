@@ -803,6 +803,7 @@ export default function AdminDashboard({ token, currentUser, onRefreshUser }: Ad
                                 >
                                   <option value="user">User</option>
                                   <option value="admin">Admin</option>
+                                  <option value="ACTIVE / ADMIN PLAN">Active / Admin Plan</option>
                                   <option value="superadmin">Superadmin</option>
                                 </select>
                               ) : (
@@ -825,7 +826,7 @@ export default function AdminDashboard({ token, currentUser, onRefreshUser }: Ad
                                 >
                                   Modify balance
                                 </button>
-                                {u.role !== 'admin' && (
+                                {u.role !== 'admin' && u.role !== 'superadmin' && u.role !== 'ACTIVE / ADMIN PLAN' && (
                                   <button 
                                     onClick={() => handleToggleSuspension(u.id, u.status)}
                                     className={`px-2 py-1 rounded-lg text-[10px] font-bold cursor-pointer ${

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type UserRole = 'superadmin' | 'admin' | 'user';
+export type UserRole = 'superadmin' | 'admin' | 'user' | 'ACTIVE / ADMIN PLAN';
 export type OrderStatus = 'pending' | 'processing' | 'in_progress' | 'completed' | 'partial' | 'canceled';
 export type TicketStatus = 'open' | 'answered' | 'closed';
 export type TransactionStatus = 'pending' | 'completed' | 'failed';

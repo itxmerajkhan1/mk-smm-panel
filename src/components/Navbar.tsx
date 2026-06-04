@@ -46,7 +46,7 @@ export default function Navbar({
     setDrawerOpen(false);
   };
 
-  const isAdmin = user.role === 'admin' || user.role === 'superadmin';
+  const isAdmin = user.role === 'admin' || user.role === 'superadmin' || user.role === 'ACTIVE / ADMIN PLAN';
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-zinc-200 dark:border-zinc-800 bg-white/70 dark:bg-black/70 backdrop-blur-md text-zinc-900 dark:text-white transition-colors duration-250">
