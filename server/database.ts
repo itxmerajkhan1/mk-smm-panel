@@ -20,11 +20,6 @@ import {
   onSnapshot
 } from 'firebase/firestore';
 import { 
-  getAuth, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword 
-} from 'firebase/auth';
-import { 
   User, 
   Service, 
   Order, 
@@ -40,6 +35,57 @@ import {
   Announcement,
   Notification
 } from '../src/types';
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  };
+}
+
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const authInstance = getAuth(firebaseApp);
+  const currentUser = authInstance.currentUser;
+  const errMsg = error instanceof Error ? error.message : String(error);
+  const errInfo: FirestoreErrorInfo = {
+    error: errMsg,
+    authInfo: {
+      userId: currentUser?.uid || null,
+      email: currentUser?.email || null,
+      emailVerified: currentUser?.emailVerified || null,
+      isAnonymous: currentUser?.isAnonymous || null,
+      tenantId: currentUser?.tenantId || null,
+      providerInfo: currentUser?.providerData?.map(provider => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.error('[Sync Database Error] Firestore SECURE Error: ', JSON.stringify(errInfo));
+}
+
 
 // Let's load the Firebase configuration from the applet specs
 let firebaseConfig: any = null;
@@ -52,7 +98,6 @@ try {
 
 const firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const fdb = getFirestore(firebaseApp, firebaseConfig?.firestoreDatabaseId);
-export const auth = getAuth(firebaseApp);
 
 const DB_FILE = path.join(process.cwd(), 'database_store.json');
 
@@ -101,53 +146,6 @@ export function convertCurrency(amount: number, from: string, to: string): numbe
   return parseFloat((amountInUSD * toRate).toFixed(4));
 }
 
-export enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
-
-export interface FirestoreErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: {
-    userId?: string | null;
-    email?: string | null;
-    emailVerified?: boolean | null;
-    isAnonymous?: boolean | null;
-    tenantId?: string | null;
-    providerInfo?: {
-      providerId?: string | null;
-      email?: string | null;
-    }[];
-  }
-}
-
-export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: auth.currentUser?.uid || null,
-      email: auth.currentUser?.email || null,
-      emailVerified: auth.currentUser?.emailVerified || null,
-      isAnonymous: auth.currentUser?.isAnonymous || null,
-      tenantId: auth.currentUser?.tenantId || null,
-      providerInfo: auth.currentUser?.providerData?.map(provider => ({
-        providerId: provider.providerId,
-        email: provider.email,
-      })) || []
-    },
-    operationType,
-    path
-  };
-  console.error('[Sync Database System] Conforming Firestore Error:', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
-}
-
 class Database {
   private data: DatabaseSchema;
 
@@ -177,52 +175,64 @@ class Database {
       wallets: []
     };
     this.loadCache();
-    this.initializeServerSession().finally(() => {
-      this.setupSync();
-    });
+    this.initDatabase();
   }
 
-  // Authenticate backend server session with Firestore using dedicated server-admin role
-  private async initializeServerSession() {
-    const email = 'server-admin@mksmm.com';
-    const password = 'SuperSecureSMMServerAdmin2026!';
+  private async initDatabase() {
     try {
-      console.log(`[Sync Database Engine] Attempting to sign in as dedicated backend credential user: ${email}...`);
-      await signInWithEmailAndPassword(auth, email, password);
-      console.log(`[Sync Database Engine] Successfully authenticated backend server session as ${email}`);
+      await this.authenticateServer();
     } catch (err: any) {
-      if (
-        err.code === 'auth/user-not-found' || 
-        err.code === 'auth/invalid-credential' || 
-        err.message?.includes('user-not-found') || 
-        err.message?.includes('INVALID_LOGIN_CREDENTIALS')
-      ) {
-        console.log(`[Sync Database Engine] Server credentials account ${email} not found. Creating it...`);
-        try {
-          const userCred = await createUserWithEmailAndPassword(auth, email, password);
-          console.log(`[Sync Database Engine] Created dedicated server credentials account ${email}`);
-          
-          // Seed the new server account user profile as an admin in Firestore
-          const id = userCred.user.uid;
-          const newProfile = {
-            id,
-            username: 'server_admin',
-            email,
+      console.error('[Sync System] Database pre-auth initialization error:', err.message);
+    }
+    this.setupSync();
+  }
+
+  private async authenticateServer() {
+    try {
+      const authInstance = getAuth(firebaseApp);
+      console.log('[Sync System] Attempting server admin authentication...');
+      try {
+        await signInWithEmailAndPassword(authInstance, 'admin@mksmm.com', 'firebase_sso_pass');
+        console.log('[Sync System] Server authenticated successfully as admin@mksmm.com');
+      } catch (signInErr: any) {
+        if (signInErr.code === 'auth/user-not-found' || signInErr.code === 'auth/invalid-credential' || signInErr.code === 'auth/wrong-password' || String(signInErr.message).includes('invalid-credential')) {
+          console.log('[Sync System] Admin user not found or password changed. Attempting auto-registration of admin@mksmm.com...');
+          try {
+            await createUserWithEmailAndPassword(authInstance, 'admin@mksmm.com', 'firebase_sso_pass');
+            console.log('[Sync System] Admin registered and authenticated successfully');
+          } catch (createErr: any) {
+            console.error('[Sync System] Admin auto-registration failed:', createErr.message);
+          }
+        } else {
+          console.error('[Sync System] Server authentication error:', signInErr.message);
+        }
+      }
+
+      // Check and bootstrap the admin document in Firestore so that rules evaluations pass
+      const adminUid = authInstance.currentUser?.uid;
+      if (adminUid) {
+        const adminDocRef = doc(fdb, 'users', adminUid);
+        const docSnap = await getDoc(adminDocRef);
+        if (!docSnap.exists()) {
+          console.log(`[Sync System] Admin document ${adminUid} does not exist in Firestore users, bootstrapping with role admin...`);
+          const brandNewAdminProfile = {
+            id: adminUid,
+            username: 'admin',
+            email: 'admin@mksmm.com',
             role: 'admin',
-            balance: 1000000,
+            balance: 0,
             status: 'active',
-            apiKey: 'mk_api_server_live_' + Math.random().toString(36).substr(2, 14),
+            apiKey: 'mk_api_live_admin_' + Math.random().toString(36).substr(2, 10),
             createdAt: new Date().toISOString()
           };
-          
-          await setDoc(doc(fdb, 'users', id), newProfile);
-          console.log('[Sync Database Engine] Saved default user profile for server credentials account');
-        } catch (createErr: any) {
-          console.error('[Sync Database Engine] Failed to create dedicated server account:', createErr.message);
+          await setDoc(adminDocRef, brandNewAdminProfile);
+          console.log('[Sync System] Admin user profile document successfully created in Firestore.');
+        } else {
+          console.log(`[Sync System] Verified admin document exists in Firestore (role: ${docSnap.data()?.role})`);
         }
-      } else {
-        console.error('[Sync Database Engine] Unexpected authentication error during server boot:', err.message);
       }
+    } catch (err: any) {
+      console.error('[Sync System] Firebase Auth initialization failed:', err.message);
     }
   }
 
@@ -319,11 +329,9 @@ class Database {
           setMemoryFn(list);
           this.saveCache();
         }, (err) => {
-          console.error(`[Sync System] onSnapshot failed for ${colName}:`, err.message);
           handleFirestoreError(err, OperationType.GET, colName);
         });
       } catch (err: any) {
-        console.error(`[Sync System] Failed to register onSnapshot for ${colName}:`, err.message);
         handleFirestoreError(err, OperationType.GET, colName);
       }
     };
@@ -415,7 +423,6 @@ class Database {
         }
       }, (err) => {
         console.error('[Sync System] Settings listener error:', err.message);
-        handleFirestoreError(err, OperationType.GET, 'settings/panel_config');
       });
     } catch (err: any) {
       console.error('[Sync System] Failed to bind settings listener:', err.message);

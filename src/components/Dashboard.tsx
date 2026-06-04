@@ -11,7 +11,7 @@ import {
   Send, Plus, Clock, CheckCircle2, AlertCircle, RefreshCw,
   ExternalLink, Sparkles, Copy, Trash2, CheckCircle, Bell,
   UserCheck, Key, ShieldAlert, Check, RefreshCcw, LogOut, Star, Grid, List,
-  Eye, UploadCloud, Search, Activity
+  Eye, UploadCloud
 } from 'lucide-react';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebase';
@@ -47,160 +47,6 @@ export default function Dashboard({
   const [orders, setOrders] = useState<Order[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-
-  // User Activity Log states
-  const [logins, setLogins] = useState<string[]>([]);
-  const [customActivities, setCustomActivities] = useState<{id: string, type: string, title: string, description: string, timestamp: string}[]>([]);
-  const [activitySearchQuery, setActivitySearchQuery] = useState('');
-  const [activityTypeFilter, setActivityTypeFilter] = useState<'all' | 'login' | 'order' | 'deposit' | 'withdrawal' | 'other'>('all');
-
-  useEffect(() => {
-    if (user && user.id) {
-      const loginKey = `mk_smm_logins_${user.id}`;
-      const savedLogins = localStorage.getItem(loginKey);
-      let logsList: string[] = savedLogins ? JSON.parse(savedLogins) : [];
-      
-      const sessionKey = `mk_smm_log_registered_${user.id}`;
-      const sessionRegistered = sessionStorage.getItem(sessionKey);
-      
-      if (!sessionRegistered) {
-        const timestamp = new Date().toISOString();
-        logsList = [timestamp, ...logsList].slice(0, 50);
-        localStorage.setItem(loginKey, JSON.stringify(logsList));
-        sessionStorage.setItem(sessionKey, 'true');
-      }
-      setLogins(logsList);
-
-      const customKey = `mk_smm_custom_activities_${user.id}`;
-      const savedCustom = localStorage.getItem(customKey);
-      if (savedCustom) {
-        setCustomActivities(JSON.parse(savedCustom));
-      }
-    }
-  }, [user]);
-
-  const addCustomActivity = React.useCallback((type: string, title: string, description: string) => {
-    if (!user || !user.id) return;
-    const customKey = `mk_smm_custom_activities_${user.id}`;
-    const savedCustom = localStorage.getItem(customKey);
-    let logsList = savedCustom ? JSON.parse(savedCustom) : [];
-    const newEvent = {
-      id: `custom-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      type,
-      title,
-      description,
-      timestamp: new Date().toISOString()
-    };
-    logsList = [newEvent, ...logsList].slice(0, 50);
-    localStorage.setItem(customKey, JSON.stringify(logsList));
-    setCustomActivities(logsList);
-  }, [user]);
-
-  // Merge, sort, and search/filter user activities
-  const userActivities = React.useMemo(() => {
-    interface ActivityItem {
-      id: string;
-      type: 'login' | 'order' | 'deposit' | 'withdrawal' | 'other';
-      title: string;
-      description: string;
-      timestamp: string;
-      status?: 'success' | 'pending' | 'failed' | 'completed' | 'processing' | 'cancelled';
-      amount?: number;
-    }
-
-    const list: ActivityItem[] = [];
-
-    // 1. Add login events
-    logins.forEach((time, idx) => {
-      list.push({
-        id: `login-${idx}-${time}`,
-        type: 'login',
-        title: 'User Access Authorized',
-        description: 'Successfully authenticated session via MK SMM Credentials Console.',
-        timestamp: time,
-        status: 'success'
-      });
-    });
-
-    // 2. Add SMM order events from state
-    orders.forEach(o => {
-      let statusVal: 'success' | 'pending' | 'failed' | 'completed' | 'processing' | 'cancelled' = 'pending';
-      if (o.status === 'completed') statusVal = 'success';
-      else if (o.status === 'cancelled') statusVal = 'failed';
-      else if (o.status === 'processing' || o.status === 'in_progress') statusVal = 'processing';
-      else statusVal = 'pending';
-
-      list.push({
-        id: `order-act-${o.id}`,
-        type: 'order',
-        title: 'Placed SMM Delivery Request',
-        description: `Ordered ${o.quantity.toLocaleString()} metric points for: ${o.serviceName || 'Service Node'}`,
-        timestamp: o.createdAt,
-        status: statusVal,
-        amount: o.charge
-      });
-    });
-
-    // 3. Add transactions & deposits
-    transactions.forEach(t => {
-      const isWithdrawal = t.type === 'withdrawal';
-      let statusVal: 'success' | 'pending' | 'failed' | 'completed' | 'processing' | 'cancelled' = 'pending';
-      if (t.status === 'approved' || t.status === 'completed' || t.status === 'active') statusVal = 'success';
-      else if (t.status === 'failed' || t.status === 'rejected') statusVal = 'failed';
-      else statusVal = 'pending';
-
-      list.push({
-        id: `tx-act-${t.id}`,
-        type: isWithdrawal ? 'withdrawal' : 'deposit',
-        title: isWithdrawal ? 'Funds Withdrawal Requested' : 'Wallet Deposit Completed',
-        description: isWithdrawal 
-          ? `Requested withdrawal payout of $${t.amount.toFixed(2)} USD via ${t.method}.`
-          : `Deposited $${t.amount.toFixed(2)} USD capital via ${t.method}.`,
-        timestamp: t.createdAt,
-        status: statusVal,
-        amount: t.amount
-      });
-    });
-
-    // 4. Add custom logged activities (API Key refresh, password resets, ticket creations, child panels)
-    customActivities.forEach(c => {
-      list.push({
-        id: c.id,
-        type: 'other',
-        title: c.title,
-        description: c.description,
-        timestamp: c.timestamp,
-        status: 'success'
-      });
-    });
-
-    // Sort descending by timestamp
-    const sorted = list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-    // Apply filter
-    const filtered = sorted.filter(act => {
-      // Type filter
-      if (activityTypeFilter !== 'all') {
-        if (activityTypeFilter === 'deposit' && act.type !== 'deposit') return false;
-        if (activityTypeFilter === 'withdrawal' && act.type !== 'withdrawal') return false;
-        if (activityTypeFilter === 'login' && act.type !== 'login') return false;
-        if (activityTypeFilter === 'order' && act.type !== 'order') return false;
-        if (activityTypeFilter === 'other' && act.type !== 'other') return false;
-      }
-      // Search query filter
-      if (activitySearchQuery.trim()) {
-        const queryVal = activitySearchQuery.toLowerCase();
-        return (
-          act.title.toLowerCase().includes(queryVal) ||
-          act.description.toLowerCase().includes(queryVal) ||
-          act.type.toLowerCase().includes(queryVal)
-        );
-      }
-      return true;
-    });
-
-    return filtered;
-  }, [logins, orders, transactions, customActivities, activityTypeFilter, activitySearchQuery]);
   
   const [catalogCategoryFilter, setCatalogCategoryFilter] = useState('ALL');
   const [servicesSearchQuery, setServicesSearchQuery] = useState('');
@@ -489,7 +335,6 @@ export default function Dashboard({
       }
 
       setOrderSuccess(`Success! Your order has been placed. Cost charged: $${estimatedCharge.toFixed(3)}.`);
-      addCustomActivity('order', 'SMM Order Configured', `Dispatched order for ${qtyVal.toLocaleString()} x ${selectedService?.name || 'SMM Service Node'}`);
       setTargetLink('');
       setQuantity('');
       setEstimatedCharge(0);
@@ -626,14 +471,6 @@ export default function Dashboard({
         setDepositSuccess(`Manual Deposit Ticket Submitted! SMM Admins will verify your reference details and screenshot shortly. Status is now pending.`);
       }
 
-      addCustomActivity(
-        'deposit',
-        isInstant ? 'Instant Wallet Fund Added' : 'Manual Deposit Scheduled',
-        isInstant 
-          ? `Injected $${amt.toFixed(2)} USD into active SMM wallet via ${depositMethod}.` 
-          : `Requested check clearance for manual deposit of $${amt.toFixed(2)} USD via ${depositMethod}.`
-      );
-
       setDepositAmount('25');
       setDepositReceiptCode('');
       setSenderPhoneNumber('');
@@ -687,7 +524,6 @@ export default function Dashboard({
       }
 
       setWithdrawSuccess(`Success! Withdraw request of $${amt.toFixed(2)} submitted. Your wallet is updated.`);
-      addCustomActivity('withdrawal', 'Wallet Payout Requested', `Requested payout withdrawal of $${amt.toFixed(2)} USD via ${withdrawMethod}.`);
       setWithdrawDetails('');
       onRefreshUser();
       fetchTransactions();
@@ -768,7 +604,6 @@ export default function Dashboard({
       }
 
       setTicketSuccess('Support ticket loaded into workspace. Rest assured, our helpdesk team usually answers within an hour!');
-      addCustomActivity('other', 'Created Support Ticket', `Opened design support inquiry: "${ticketSubject}"`);
       setTicketSubject('');
       setTicketMessage('');
       fetchTickets();
@@ -820,7 +655,6 @@ export default function Dashboard({
     setRegeneratingKey(true);
     try {
       await updateUserApiKey();
-      addCustomActivity('other', 'Regenerated Vault API Key', 'Regenerated system authorization developer API token.');
       alert('Your system authorization token has been regenerated.');
     } catch (e: any) {
       alert(e.message);
@@ -965,165 +799,46 @@ export default function Dashboard({
           {/* Core Dashboard Bento Grid split */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
-            {/* Left Column: Realtime Notifications and User Activity Log */}
-            <div className="lg:col-span-2 space-y-6">
-              
-              {/* Realtime Notifications box */}
-              <div className="border border-zinc-900 bg-[#090909] rounded-xl p-6 relative">
-                <div className="flex justify-between items-center border-b border-zinc-900 pb-4 mb-4">
-                  <div className="flex items-center gap-2">
-                    <Bell className="h-4.5 w-4.5 text-blue-500 animate-pulse" />
-                    <h3 className="font-display font-black tracking-tight text-sm uppercase text-white">
-                      Realtime System Broadcast Notifications
-                    </h3>
-                  </div>
-                  <span className="text-[8px] tracking-widest text-zinc-500 font-extrabold block border border-zinc-850 px-1.5 rounded bg-black">
-                    ACTIVE SYNC
-                  </span>
+            {/* Realtime Notifications box */}
+            <div className="lg:col-span-2 border border-zinc-900 bg-[#090909] rounded-xl p-6 relative">
+              <div className="flex justify-between items-center border-b border-zinc-900 pb-4 mb-4">
+                <div className="flex items-center gap-2">
+                  <Bell className="h-4.5 w-4.5 text-blue-500 animate-pulse" />
+                  <h3 className="font-display font-black tracking-tight text-sm uppercase text-white">
+                    Realtime System Broadcast Notifications
+                  </h3>
                 </div>
-
-                {notifications.length === 0 ? (
-                  <div className="py-20 text-center flex flex-col items-center justify-center gap-2">
-                    <Bell className="h-8 w-8 text-zinc-700" />
-                    <h4 className="text-xs font-bold text-zinc-400">System Logs Clear</h4>
-                    <p className="text-[10px] text-zinc-650 max-w-xs">No active alerts. Add funds or place orders to trigger real-time ledger announcements.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3.5 max-h-[250px] overflow-y-auto pr-2">
-                    {notifications.map(n => (
-                      <div 
-                        key={n.id} 
-                        className={`p-3.5 border rounded-xl transition-all ${
-                          n.read ? 'border-zinc-900 bg-zinc-950/20 opacity-60' : 'border-blue-900/30 bg-blue-950/5'
-                        }`}
-                      >
-                        <div className="flex justify-between items-start">
-                          <span className="text-xs font-extrabold text-blue-400">{n.title}</span>
-                          <span className="text-[8.5px] font-mono text-zinc-600">
-                            {new Date(n.createdAt).toLocaleTimeString()}
-                          </span>
-                        </div>
-                        <p className="text-[11.5px] text-zinc-400 font-normal mt-1 leading-relaxed">{n.message}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <span className="text-[8px] tracking-widest text-zinc-500 font-extrabold block border border-zinc-850 px-1.5 rounded bg-black">
+                  ACTIVE SYNC
+                </span>
               </div>
 
-              {/* User Activity Log section */}
-              <div className="border border-zinc-900 bg-[#090909] rounded-xl p-6 relative text-left">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-zinc-900 pb-4 mb-4">
-                  <div className="flex items-center gap-2">
-                    <Activity className="h-4.5 w-4.5 text-blue-500 animate-pulse" />
-                    <div>
-                      <h3 className="font-display font-black tracking-tight text-sm uppercase text-white">
-                        User Security & Activity Ledger
-                      </h3>
-                      <p className="text-[10px] text-zinc-500 mt-0.5">Real-time audit log of your orders, database updates, wallet deposits & auth sessions</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <select
-                      value={activityTypeFilter}
-                      onChange={(e: any) => setActivityTypeFilter(e.target.value)}
-                      className="text-[10px] font-mono font-bold bg-black border border-zinc-850 text-zinc-400 rounded-lg px-2.5 py-1.5 focus:border-blue-550 outline-none"
+              {notifications.length === 0 ? (
+                <div className="py-20 text-center flex flex-col items-center justify-center gap-2">
+                  <Bell className="h-8 w-8 text-zinc-700" />
+                  <h4 className="text-xs font-bold text-zinc-400">System Logs Clear</h4>
+                  <p className="text-[10px] text-zinc-650 max-w-xs">No active alerts. Add funds or place orders to trigger real-time ledger announcements.</p>
+                </div>
+              ) : (
+                <div className="space-y-3.5 max-h-[350px] overflow-y-auto pr-2">
+                  {notifications.map(n => (
+                    <div 
+                      key={n.id} 
+                      className={`p-3.5 border rounded-xl transition-all ${
+                        n.read ? 'border-zinc-900 bg-zinc-950/20 opacity-60' : 'border-blue-900/30 bg-blue-950/5'
+                      }`}
                     >
-                      <option value="all">ALL ENTRIES</option>
-                      <option value="login">LOGINS</option>
-                      <option value="order">ORDERS</option>
-                      <option value="deposit">DEPOSITS</option>
-                      <option value="withdrawal">PAYOUTS</option>
-                      <option value="other">SYSTEM</option>
-                    </select>
-                  </div>
+                      <div className="flex justify-between items-start">
+                        <span className="text-xs font-extrabold text-blue-400">{n.title}</span>
+                        <span className="text-[8.5px] font-mono text-zinc-600">
+                          {new Date(n.createdAt).toLocaleTimeString()}
+                        </span>
+                      </div>
+                      <p className="text-[11.5px] text-zinc-400 font-normal mt-1 leading-relaxed">{n.message}</p>
+                    </div>
+                  ))}
                 </div>
-
-                {/* Live search input for activities */}
-                <div className="relative mb-4">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-600" />
-                  <input
-                    type="text"
-                    placeholder="Query system activity keys, orders or status tags..."
-                    value={activitySearchQuery}
-                    onChange={(e) => setActivitySearchQuery(e.target.value)}
-                    className="w-full bg-zinc-950/40 border border-zinc-900 rounded-lg py-2 pl-9 pr-4 text-xs text-zinc-300 placeholder-zinc-700 outline-none focus:border-zinc-800 transition-all font-mono"
-                  />
-                </div>
-
-                {userActivities.length === 0 ? (
-                  <div className="py-14 text-center flex flex-col items-center justify-center gap-2 border border-dashed border-zinc-900/60 rounded-xl bg-zinc-950/10">
-                    <Activity className="h-6 w-6 text-zinc-800 animate-pulse" />
-                    <h4 className="text-xs font-bold text-zinc-500">No Match Logs Found</h4>
-                    <p className="text-[10px] text-zinc-650 max-w-xs leading-normal">
-                      Try adjusting your filters or search keywords. Real-time actions appear instantly.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-zinc-900">
-                    {userActivities.map((act) => {
-                      const typeColor = 
-                        act.type === 'login' ? 'bg-indigo-950/20 text-indigo-400 border-indigo-900/30' :
-                        act.type === 'order' ? 'bg-blue-950/25 text-blue-400 border-blue-900/30' :
-                        act.type === 'deposit' ? 'bg-emerald-950/25 text-emerald-400 border-emerald-900/30' :
-                        act.type === 'withdrawal' ? 'bg-purple-950/25 text-purple-400 border-purple-900/30' :
-                        'bg-zinc-950 text-zinc-400 border-zinc-900';
-
-                      const IconToUse = 
-                        act.type === 'login' ? UserCheck :
-                        act.type === 'order' ? ShoppingBag :
-                        act.type === 'deposit' ? Wallet :
-                        act.type === 'withdrawal' ? RefreshCcw :
-                        Clock;
-
-                      return (
-                        <div 
-                          key={act.id} 
-                          className="p-3.5 border rounded-xl bg-zinc-950/30 border-zinc-900 hover:border-zinc-850/80 transition-all flex items-start gap-3"
-                        >
-                          <div className={`p-2 rounded-lg border flex-shrink-0 ${typeColor}`}>
-                            <IconToUse className="h-4 w-4" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex justify-between items-start gap-2">
-                              <span className="text-xs font-bold text-zinc-200 truncate">{act.title}</span>
-                              <span className="text-[9px] font-mono text-zinc-600 flex-shrink-0 mt-0.5">
-                                {new Date(act.timestamp).toLocaleString(undefined, {
-                                  month: 'short',
-                                  day: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-zinc-500 font-normal mt-0.5 leading-relaxed break-words">
-                              {act.description}
-                            </p>
-                            <div className="mt-2 flex items-center gap-2">
-                              <span className={`text-[8px] font-bold font-mono px-1.5 py-0.5 rounded uppercase tracking-wider ${
-                                act.status === 'success' ? 'bg-emerald-950/30 text-emerald-400 border border-emerald-900/20' :
-                                act.status === 'failed' ? 'bg-red-950/30 text-red-400 border border-red-900/20' :
-                                act.status === 'processing' ? 'bg-amber-950/30 text-amber-500 border border-amber-900/20' :
-                                'bg-zinc-900 text-zinc-500 border border-zinc-805'
-                              }`}>
-                                {act.status || 'system'}
-                              </span>
-                              {act.amount !== undefined && (
-                                <span className="text-[9px] font-mono font-extrabold text-[#71717a]">
-                                  Value: {formatCurrency(convertCurrency(act.amount, 'USD', currency), currency)}
-                                </span>
-                              )}
-                              <span className="text-[8px] font-mono font-bold text-zinc-600 tracking-wider uppercase">
-                                #{act.id.split('-').pop()?.substring(0, 8)}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
+              )}
             </div>
 
             {/* Quick action shortcuts & security */}

@@ -1,0 +1,294 @@
+{
+  "users": [
+    {
+      "id": "2Esii8zVuSVrfsjowVEsa5bXMSD2",
+      "role": "user",
+      "email": "meraj@gmail.coom",
+      "apiKey": "mk_live_hecunh1t8yb8rql7",
+      "createdAt": "2026-06-03T08:32:28.344Z",
+      "balance": 0,
+      "uid": "2Esii8zVuSVrfsjowVEsa5bXMSD2",
+      "username": "merajkhan",
+      "status": "active"
+    },
+    {
+      "id": "BpK05WTu1QMSAYYX51TumvsGaH53",
+      "status": "active",
+      "balance": 25,
+      "uid": "BpK05WTu1QMSAYYX51TumvsGaH53",
+      "username": "ayan",
+      "email": "ayan@gamil.com",
+      "apiKey": "mk_live_4i3e9wkedhefgqkk",
+      "createdAt": "2026-06-03T07:35:56.041Z",
+      "role": "user"
+    },
+    {
+      "id": "NaSb5rjmNSaTi3tMsa9Nu2OEQBk1",
+      "apiKey": "mk_live_4psxkjpz1rr49zyf",
+      "email": "amanshahid072@gmail.com",
+      "createdAt": "2026-06-03T11:36:48.869Z",
+      "role": "user",
+      "status": "active",
+      "uid": "NaSb5rjmNSaTi3tMsa9Nu2OEQBk1",
+      "balance": 0,
+      "username": "aman"
+    },
+    {
+      "id": "YW0m6AYPD2U6imS9YI2SGwHLmCH3",
+      "email": "itxmerajk9@gmail.com",
+      "apiKey": "mk_live_9h5h1lu1wgafk5gb",
+      "createdAt": "2026-06-04T07:55:00.945Z",
+      "role": "user",
+      "status": "active",
+      "balance": 0,
+      "uid": "YW0m6AYPD2U6imS9YI2SGwHLmCH3",
+      "username": "merajkhan"
+    },
+    {
+      "id": "bLX7m0HwH6a64zTSy56N0tPcOJz2",
+      "role": "admin",
+      "createdAt": "2026-06-03T07:55:47.521Z",
+      "apiKey": "mk_live_hig25yu2i3e1secn",
+      "email": "itxmerajkhan3109@gmail.com",
+      "username": "merajkhan",
+      "uid": "bLX7m0HwH6a64zTSy56N0tPcOJz2",
+      "balance": 0,
+      "status": "active"
+    },
+    {
+      "id": "cll0MJu7u0N5xDFhszbvaKrkk2u1",
+      "status": "active",
+      "uid": "cll0MJu7u0N5xDFhszbvaKrkk2u1",
+      "balance": 0,
+      "username": "merajkhan",
+      "apiKey": "mk_live_gjs0wip4psbrom1p",
+      "email": "itxmen3109@gmail.com",
+      "createdAt": "2026-06-03T11:47:10.457Z",
+      "role": "user"
+    },
+    {
+      "id": "ewmd21R7O4NGN71FDqb43AlQBnp1",
+      "email": "admin@mksmm.com",
+      "apiKey": "mk_api_live_admin_k7toqj6mdd",
+      "status": "active",
+      "createdAt": "2026-06-04T11:00:26.907Z",
+      "balance": 0,
+      "username": "admin",
+      "role": "admin"
+    },
+    {
+      "id": "iqwHkRBBh1NR2aNloSQIjmTQDVg1",
+      "status": "active",
+      "uid": "iqwHkRBBh1NR2aNloSQIjmTQDVg1",
+      "balance": 25,
+      "username": "meraj",
+      "apiKey": "mk_live_63rwgsog848nscw4",
+      "email": "itxmerajkhan3109@gmail.com",
+      "createdAt": "2026-06-03T06:58:22.061Z",
+      "role": "admin"
+    },
+    {
+      "id": "oFTJ0KUaiSMghpFCfLmPjcXYizj1",
+      "status": "active",
+      "createdAt": "2026-06-02T21:32:39.523Z",
+      "apiKey": "mk_live_bvj6k61ojzqnntak",
+      "email": "user@test.com",
+      "role": "user",
+      "username": "testuser",
+      "balance": 25
+    },
+    {
+      "id": "wEXkLPgcTUeYeHPY4J0r985jWgQ2",
+      "apiKey": "mk_live_a6hyrl47ck4oilup",
+      "email": "mki@gmail.com",
+      "createdAt": "2026-06-03T11:35:04.052Z",
+      "role": "user",
+      "status": "active",
+      "uid": "wEXkLPgcTUeYeHPY4J0r985jWgQ2",
+      "balance": 0,
+      "username": "merajkhan"
+    }
+  ],
+  "passwords": {},
+  "services": [
+    {
+      "id": "s1_fyh5k",
+      "category": "Instagram - Likes",
+      "active": true,
+      "profitAmount": 0,
+      "min": 50,
+      "cancel": true,
+      "customerPrice": 0.38,
+      "description": "Imported via standard reseller API syncing from provider catalog SMMCTRL. Non-drop high performance node connection.",
+      "providerId": "prov_smmctrl",
+      "refill": true,
+      "max": 20000,
+      "rate": 0.38,
+      "providerPrice": 0.38,
+      "name": "SMMCTRL - Instagram Likes [Active Profiles / High Speed]",
+      "originalServiceId": "1001"
+    },
+    {
+      "id": "s2_ivboa",
+      "profitAmount": 0,
+      "description": "Imported via standard reseller API syncing from provider catalog SMMCTRL. Non-drop high performance node connection.",
+      "customerPrice": 1.45,
+      "cancel": false,
+      "min": 100,
+      "category": "Instagram - Followers",
+      "active": true,
+      "name": "SMMCTRL - Instagram Followers [Elite High-Retention / Non-Drop]",
+      "originalServiceId": "1002",
+      "refill": true,
+      "providerId": "prov_smmctrl",
+      "providerPrice": 1.45,
+      "rate": 1.45,
+      "max": 50000
+    },
+    {
+      "id": "s3_9nzx0",
+      "originalServiceId": "1003",
+      "name": "SMMCTRL - TikTok Core Views [Instant Delivery / Viral Potential]",
+      "max": 1000000,
+      "rate": 0.05,
+      "providerPrice": 0.05,
+      "providerId": "prov_smmctrl",
+      "refill": false,
+      "min": 100,
+      "cancel": false,
+      "description": "Imported via standard reseller API syncing from provider catalog SMMCTRL. Non-drop high performance node connection.",
+      "customerPrice": 0.05,
+      "profitAmount": 0,
+      "active": true,
+      "category": "TikTok - Views"
+    },
+    {
+      "id": "s4_xqua0",
+      "name": "SMMCTRL - YouTube Organic Subscribers [Steady Flow / Lifetime Guaranteed]",
+      "originalServiceId": "1004",
+      "refill": true,
+      "providerId": "prov_smmctrl",
+      "providerPrice": 14.95,
+      "max": 5000,
+      "rate": 14.95,
+      "profitAmount": 0,
+      "customerPrice": 14.95,
+      "description": "Imported via standard reseller API syncing from provider catalog SMMCTRL. Non-drop high performance node connection.",
+      "cancel": false,
+      "min": 50,
+      "category": "YouTube - Subscribers",
+      "active": true
+    },
+    {
+      "id": "s5_mddsh",
+      "profitAmount": 0,
+      "customerPrice": 4.5,
+      "description": "Imported via standard reseller API syncing from provider catalog SMMCTRL. Non-drop high performance node connection.",
+      "min": 20,
+      "cancel": true,
+      "category": "X (Twitter) - Retweets",
+      "active": true,
+      "name": "SMMCTRL - X (Twitter) Standard Retweets [Active Real Feeds]",
+      "originalServiceId": "1005",
+      "providerId": "prov_smmctrl",
+      "refill": true,
+      "providerPrice": 4.5,
+      "rate": 4.5,
+      "max": 5000
+    },
+    {
+      "id": "s6_pua6k",
+      "name": "SMMCTRL - Facebook Post Reacts [Real Profile / Instant Start]",
+      "originalServiceId": "1006",
+      "providerId": "prov_smmctrl",
+      "refill": false,
+      "rate": 0.98,
+      "max": 15000,
+      "providerPrice": 0.98,
+      "profitAmount": 0,
+      "min": 10,
+      "cancel": true,
+      "description": "Imported via standard reseller API syncing from provider catalog SMMCTRL. Non-drop high performance node connection.",
+      "customerPrice": 0.98,
+      "category": "Facebook - Interactive",
+      "active": true
+    }
+  ],
+  "categories": [
+    {
+      "id": "cat_4dgwoxnn8",
+      "active": true,
+      "icon": "Tv",
+      "name": "TikTok - Views"
+    },
+    {
+      "id": "cat_5sl92fsi9",
+      "name": "Instagram - Followers",
+      "icon": "Instagram",
+      "active": true
+    },
+    {
+      "id": "cat_89e94wkut",
+      "active": true,
+      "icon": "Twitter",
+      "name": "X (Twitter) - Retweets"
+    },
+    {
+      "id": "cat_8c4px54bq",
+      "active": true,
+      "icon": "Youtube",
+      "name": "YouTube - Subscribers"
+    },
+    {
+      "id": "cat_g05o2n4gj",
+      "active": true,
+      "icon": "Layers",
+      "name": "Facebook - Interactive"
+    },
+    {
+      "id": "cat_n68riq2iu",
+      "name": "Instagram - Likes",
+      "icon": "Instagram",
+      "active": true
+    }
+  ],
+  "providers": [
+    {
+      "id": "prov_smmctrl",
+      "apiKey": "",
+      "createdAt": "2026-06-04T11:00:28.239Z",
+      "active": true,
+      "apiType": "smm",
+      "url": "https://smmctrl.com/api/v2",
+      "name": "SMMCTRL",
+      "balance": 0
+    },
+    {
+      "id": "prov_smmlite",
+      "createdAt": "2026-06-04T11:24:29.501Z",
+      "apiType": "smm",
+      "active": true,
+      "apiKey": "f79209d10073eed976feb4cbaf19f550",
+      "url": "https://smmlite.com/api/v2",
+      "name": "SMM Lite",
+      "balance": 0
+    }
+  ],
+  "auditLogs": [],
+  "settings": {
+    "minDeposit": 5,
+    "currency": "USD",
+    "autoSyncIntervalHours": 6,
+    "panelName": "MK SMM Panel",
+    "maintenanceMode": false,
+    "autoSyncServices": false,
+    "maxDeposit": 10000
+  },
+  "orders": [],
+  "tickets": [],
+  "transactions": [],
+  "referrals": [],
+  "commissions": [],
+  "announcements": [],
+  "wallets": []
+}

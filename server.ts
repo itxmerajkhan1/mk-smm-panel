@@ -1594,6 +1594,7 @@ async function syncProviderServices(providerId?: string, isAuto = false): Promis
             refill: fetchedSvc.refill === true || String(fetchedSvc.refill).toLowerCase() === 'true',
             cancel: fetchedSvc.cancel === true || String(fetchedSvc.cancel).toLowerCase() === 'true',
             providerPrice,
+            provider_price: providerPrice,
             customerPrice,
             profitAmount
           });
@@ -1613,6 +1614,7 @@ async function syncProviderServices(providerId?: string, isAuto = false): Promis
             providerId: prov.id,
             originalServiceId: extId,
             providerPrice,
+            provider_price: providerPrice,
             customerPrice,
             profitAmount
           });

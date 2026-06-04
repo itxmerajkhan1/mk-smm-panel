@@ -44,6 +44,7 @@ export interface Service {
   providerId?: string; // Linked provider node ID
   originalServiceId?: string; // Service ID in provider API
   providerPrice?: number;     // Original price from provider API
+  provider_price?: number;    // Original price explicitly tracked
   customerPrice?: number;     // Marked-up price for customer (same as rate)
   profitAmount?: number;      // Calculated profit per 1000 items
 }

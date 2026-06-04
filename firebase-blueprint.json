@@ -10,50 +10,30 @@
         "email": { "type": "string" },
         "role": { "type": "string" },
         "balance": { "type": "number" },
-        "currency": { "type": "string" },
         "status": { "type": "string" },
         "apiKey": { "type": "string" },
         "createdAt": { "type": "string" },
         "referredBy": { "type": "string" },
         "referralEarnings": { "type": "number" },
-        "referralCount": { "type": "number" }
+        "referralCount": { "type": "integer" }
       },
       "required": ["id", "username", "email", "role", "balance", "status", "apiKey", "createdAt"]
     },
-    "Category": {
-      "title": "Service Catalog Category",
-      "description": "Category for classifying SMM services",
+    "Wallet": {
+      "title": "User Multi-Currency Wallet",
+      "description": "Tracks balance across multiple synced fiat currencies",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
-        "name": { "type": "string" },
-        "icon": { "type": "string" },
-        "active": { "type": "boolean" }
+        "userId": { "type": "string" },
+        "USD": { "type": "number" },
+        "PKR": { "type": "number" },
+        "EUR": { "type": "number" },
+        "GBP": { "type": "number" },
+        "currency": { "type": "string" },
+        "updatedAt": { "type": "string" }
       },
-      "required": ["id", "name", "icon", "active"]
-    },
-    "Service": {
-      "title": "SMM Catalog Service",
-      "description": "Reseller or local SMM service catalog details",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "category": { "type": "string" },
-        "name": { "type": "string" },
-        "rate": { "type": "number" },
-        "min": { "type": "integer" },
-        "max": { "type": "integer" },
-        "description": { "type": "string" },
-        "active": { "type": "boolean" },
-        "refill": { "type": "boolean" },
-        "cancel": { "type": "boolean" },
-        "providerId": { "type": "string" },
-        "originalServiceId": { "type": "string" },
-        "providerPrice": { "type": "number" },
-        "customerPrice": { "type": "number" },
-        "profitAmount": { "type": "number" }
-      },
-      "required": ["id", "category", "name", "rate", "min", "max", "description", "active"]
+      "required": ["id", "userId", "USD", "PKR", "EUR", "GBP", "currency", "updatedAt"]
     },
     "Order": {
       "title": "SMM Order",
@@ -62,10 +42,7 @@
       "properties": {
         "id": { "type": "string" },
         "userId": { "type": "string" },
-        "username": { "type": "string" },
         "serviceId": { "type": "string" },
-        "serviceName": { "type": "string" },
-        "category": { "type": "string" },
         "link": { "type": "string" },
         "quantity": { "type": "integer" },
         "charge": { "type": "number" },
@@ -86,31 +63,29 @@
       "properties": {
         "id": { "type": "string" },
         "userId": { "type": "string" },
-        "username": { "type": "string" },
         "subject": { "type": "string" },
         "message": { "type": "string" },
         "status": { "type": "string" },
-        "replies": { "type": "array" },
-        "createdAt": { "type": "string" }
+        "createdAt": { "type": "string" },
+        "replies": { "type": "array" }
       },
       "required": ["id", "userId", "subject", "message", "status", "createdAt"]
     },
     "Transaction": {
       "title": "Financial Transaction",
-      "description": "Deposit transactions to user wallets",
+      "description": "Deposit and withdrawal transactions ledger",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "userId": { "type": "string" },
-        "username": { "type": "string" },
         "amount": { "type": "number" },
         "method": { "type": "string" },
         "status": { "type": "string" },
-        "createdAt": { "type": "string" },
         "type": { "type": "string" },
         "senderDetails": { "type": "string" },
+        "screenshotUrl": { "type": "string" },
         "adminNotes": { "type": "string" },
-        "screenshotUrl": { "type": "string" }
+        "createdAt": { "type": "string" }
       },
       "required": ["id", "userId", "amount", "method", "status", "createdAt"]
     },
@@ -129,8 +104,8 @@
       "required": ["id", "userId", "title", "message", "read", "createdAt"]
     },
     "Provider": {
-      "title": "API Service Provider",
-      "description": "SMM Reseller/Wholesaler Provider Connection Config",
+      "title": "Reseller API Provider",
+      "description": "Supplier API configuration and keys",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -144,24 +119,44 @@
       },
       "required": ["id", "name", "apiType", "url", "active", "createdAt"]
     },
-    "AuditLog": {
-      "title": "System Audit Log",
-      "description": "Security audit trails for admin updates",
+    "Service": {
+      "title": "SMM Service",
+      "description": "Reseller and system SMM catalog entries",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
-        "userId": { "type": "string" },
-        "username": { "type": "string" },
-        "action": { "type": "string" },
-        "details": { "type": "string" },
-        "ipAddress": { "type": "string" },
-        "createdAt": { "type": "string" }
+        "category": { "type": "string" },
+        "name": { "type": "string" },
+        "rate": { "type": "number" },
+        "min": { "type": "integer" },
+        "max": { "type": "integer" },
+        "active": { "type": "boolean" },
+        "description": { "type": "string" },
+        "refill": { "type": "boolean" },
+        "cancel": { "type": "boolean" },
+        "providerId": { "type": "string" },
+        "originalServiceId": { "type": "string" },
+        "providerPrice": { "type": "number" },
+        "customerPrice": { "type": "number" },
+        "profitAmount": { "type": "number" }
       },
-      "required": ["id", "userId", "username", "action", "details", "createdAt"]
+      "required": ["id", "category", "name", "rate", "min", "max", "active"]
+    },
+    "Category": {
+      "title": "Service Category",
+      "description": "Grouping categories for services catalogue",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "icon": { "type": "string" },
+        "active": { "type": "boolean" }
+      },
+      "required": ["id", "name", "icon", "active"]
     },
     "Referral": {
-      "title": "Affiliate Referral Link tracking",
-      "description": "Mapping of reference links usage tracking",
+      "title": "Referral Linkage",
+      "description": "SMM panel referral affiliate signups",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -169,14 +164,14 @@
         "referredId": { "type": "string" },
         "referredUsername": { "type": "string" },
         "referredEmail": { "type": "string" },
-        "createdAt": { "type": "string" },
-        "commissionsEarned": { "type": "number" }
+        "commissionsEarned": { "type": "number" },
+        "createdAt": { "type": "string" }
       },
-      "required": ["id", "referrerId", "referredId", "createdAt"]
+      "required": ["id", "referrerId", "referredId", "referredUsername", "referredEmail", "createdAt"]
     },
     "Commission": {
-      "title": "Affiliate referral commission payment",
-      "description": "Commissions paid based on referrals",
+      "title": "Referral Commission Audit",
+      "description": "Commissions earned by referring users upon their top-ups",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -186,43 +181,62 @@
         "transactionId": { "type": "string" },
         "transactionAmount": { "type": "number" },
         "commissionAmount": { "type": "number" },
-        "createdAt": { "type": "string" },
-        "status": { "type": "string" }
+        "createdAt": { "type": "string" }
       },
-      "required": ["id", "referrerId", "referredId", "transactionId", "commissionAmount", "createdAt"]
+      "required": ["id", "referrerId", "referredId", "referredUsername", "transactionId", "transactionAmount", "commissionAmount", "createdAt"]
     },
     "Announcement": {
-      "title": "Board Announcements",
-      "description": "Public or private notifications on dashboard",
+      "title": "Announcement Board Node",
+      "description": "Announcements made by administrators on panel billboard",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "title": { "type": "string" },
-        "message": { "type": "string" },
+        "content": { "type": "string" },
+        "active": { "type": "boolean" },
         "createdAt": { "type": "string" }
       },
-      "required": ["id", "title", "message", "createdAt"]
+      "required": ["id", "title", "content", "active", "createdAt"]
     },
-    "Wallet": {
-      "title": "Multi-currency Wallet",
-      "description": "SMM panel user cash balances across currencies",
+    "AuditLog": {
+      "title": "System Security Audit Log",
+      "description": "Security events and action records executed in platform",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "userId": { "type": "string" },
-        "USD": { "type": "number" },
-        "PKR": { "type": "number" },
-        "EUR": { "type": "number" },
-        "GBP": { "type": "number" },
-        "updatedAt": { "type": "string" }
+        "username": { "type": "string" },
+        "action": { "type": "string" },
+        "details": { "type": "string" },
+        "createdAt": { "type": "string" }
       },
-      "required": ["id", "userId", "updatedAt"]
+      "required": ["id", "userId", "username", "action", "details", "createdAt"]
+    },
+    "PanelSettings": {
+      "title": "Panel Settings Configuration",
+      "description": "Operational margins and parameters of system",
+      "type": "object",
+      "properties": {
+        "panelName": { "type": "string" },
+        "currency": { "type": "string" },
+        "maintenanceMode": { "type": "boolean" },
+        "minDeposit": { "type": "number" },
+        "maxDeposit": { "type": "number" },
+        "autoSyncServices": { "type": "boolean" },
+        "autoSyncIntervalHours": { "type": "integer" },
+        "lastSyncTime": { "type": "string" }
+      },
+      "required": ["panelName", "currency", "maintenanceMode", "minDeposit", "maxDeposit", "autoSyncServices", "autoSyncIntervalHours"]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": "#/entities/User",
       "description": "SMM user accounts"
+    },
+    "/wallets/{walletId}": {
+      "schema": "#/entities/Wallet",
+      "description": "Tracks multi-currency wallets mapped directly to UID"
     },
     "/orders/{orderId}": {
       "schema": "#/entities/Order",
@@ -240,37 +254,37 @@
       "schema": "#/entities/Notification",
       "description": "User system and broadcast notifications"
     },
-    "/categories/{categoryId}": {
-      "schema": "#/entities/Category",
-      "description": "Service categories"
+    "/providers/{providerId}": {
+      "schema": "#/entities/Provider",
+      "description": "Third-party wholesaler SMM services providers"
     },
     "/services/{serviceId}": {
       "schema": "#/entities/Service",
-      "description": "SMM catalog Services details"
+      "description": "All SMM services resold on panel"
     },
-    "/providers/{providerId}": {
-      "schema": "#/entities/Provider",
-      "description": "Wholesale SMM api providers"
-    },
-    "/wallets/{walletId}": {
-      "schema": "#/entities/Wallet",
-      "description": "Multi-currency user balances"
+    "/categories/{categoryId}": {
+      "schema": "#/entities/Category",
+      "description": "Grouping categories for list separation"
     },
     "/referrals/{referralId}": {
       "schema": "#/entities/Referral",
-      "description": "Affiliate refer links system"
+      "description": "Users tracking affiliate link conversions"
     },
     "/commissions/{commissionId}": {
       "schema": "#/entities/Commission",
-      "description": "Paid commissions listing ledger"
+      "description": "Affiliate referral payouts ledger"
     },
     "/announcements/{announcementId}": {
       "schema": "#/entities/Announcement",
-      "description": "System board bulletin feed"
+      "description": "System billboard updates and alerts"
     },
     "/auditLogs/{logId}": {
       "schema": "#/entities/AuditLog",
-      "description": "Security event logging trails of actions"
+      "description": "Operations audit ledger"
+    },
+    "/settings/panel_config": {
+      "schema": "#/entities/PanelSettings",
+      "description": "System config details"
     }
   }
 }
