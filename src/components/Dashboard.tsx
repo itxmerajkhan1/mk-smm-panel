@@ -18,7 +18,7 @@ import { storage } from '../firebase';
 import DashboardCharts from './DashboardCharts';
 import MassOrder from './MassOrder';
 import ChildPanel from './ChildPanel';
-import { formatCurrency, convertCurrency, EXCHANGE_RATES } from '../utils/currency';
+import { formatCurrency, convertCurrency, EXCHANGE_RATES, CURRENCY_SYMBOLS } from '../utils/currency';
 
 interface DashboardProps {
   user: User;
@@ -70,17 +70,40 @@ export default function Dashboard({
   const [loadingTickets, setLoadingTickets] = useState(false);
 
   // New Order Form State
-  const [categories, setCategories] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('');
-  const [filteredServices, setFilteredServices] = useState<Service[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState('');
-  const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [targetLink, setTargetLink] = useState('');
   const [quantity, setQuantity] = useState('');
-  const [estimatedCharge, setEstimatedCharge] = useState(0);
   const [orderError, setOrderError] = useState('');
   const [orderSuccess, setOrderSuccess] = useState('');
   const [placingOrder, setPlacingOrder] = useState(false);
+
+  // Derived state to avoid infinite re-render loops on any environment
+  const categories = React.useMemo(() => {
+    if (!services || !Array.isArray(services)) return [];
+    return Array.from(new Set(services.map(s => s.category)));
+  }, [services]);
+
+  const filteredServices = React.useMemo(() => {
+    if (!services || !Array.isArray(services)) return [];
+    if (!selectedCategory) return [];
+    return services.filter(s => s.category === selectedCategory);
+  }, [services, selectedCategory]);
+
+  const selectedService = React.useMemo(() => {
+    if (!services || services.length === 0 || !selectedServiceId) return null;
+    return services.find(s => s.id === selectedServiceId) || null;
+  }, [services, selectedServiceId]);
+
+  const estimatedCharge = React.useMemo(() => {
+    const qtyNum = parseInt(quantity, 10);
+    if (!selectedService || isNaN(qtyNum) || qtyNum <= 0) {
+      return 0;
+    }
+    const rate = selectedService.rate;
+    const charge = (qtyNum * rate) / 1000;
+    return parseFloat(charge.toFixed(4));
+  }, [quantity, selectedService]);
 
   // Deposit Form State
   const [depositAmount, setDepositAmount] = useState('25');
@@ -146,19 +169,6 @@ export default function Dashboard({
       if (Array.isArray(data)) {
         const activeServices = data.filter(s => s.active);
         setServices(activeServices);
-        
-        // Extract unique categories
-        const uniqCats = Array.from(new Set(activeServices.map(s => s.category)));
-        setCategories(prev => {
-          if (JSON.stringify(prev) === JSON.stringify(uniqCats)) return prev;
-          return uniqCats;
-        });
-        if (uniqCats.length > 0) {
-          setSelectedCategory(prev => {
-            if (prev && uniqCats.includes(prev)) return prev;
-            return uniqCats[0];
-          });
-        }
       }
     } catch (e) {
       console.error(e);
@@ -254,39 +264,28 @@ export default function Dashboard({
     setTicketSuccess('');
   };
 
-  // Effect: watch category to filter services
+  // Auto-select valid category from extracted list if the currently selected one is not valid
   useEffect(() => {
-    if (selectedCategory && services.length > 0) {
-      const filtered = services.filter(s => s.category === selectedCategory);
-      setFilteredServices(prev => {
-        if (JSON.stringify(prev) === JSON.stringify(filtered)) return prev;
-        return filtered;
-      });
-      if (filtered.length > 0) {
-        setSelectedServiceId(prev => {
-          if (filtered.some(s => s.id === prev)) return prev;
-          return filtered[0].id;
-        });
-      } else {
-        setSelectedServiceId('');
-        setSelectedService(null);
+    if (categories.length > 0) {
+      if (!selectedCategory || !categories.includes(selectedCategory)) {
+        setSelectedCategory(categories[0]);
       }
+    } else {
+      setSelectedCategory('');
     }
-  }, [selectedCategory, services]);
+  }, [categories, selectedCategory]);
 
-  // Effect: watch service selection to reset bounds and limits instructions
+  // Auto-select valid service from category if choice is not valid
   useEffect(() => {
-    if (selectedServiceId && services.length > 0) {
-      const found = services.find(s => s.id === selectedServiceId);
-      if (found) {
-        setSelectedService(prev => {
-          if (prev && prev.id === found.id && prev.rate === found.rate && prev.min === found.min && prev.max === found.max) return prev;
-          return found;
-        });
-        calculateEstimatedCharge(quantity, found);
+    if (filteredServices.length > 0) {
+      const isCurrentValid = filteredServices.some(s => s.id === selectedServiceId);
+      if (!isCurrentValid) {
+        setSelectedServiceId(filteredServices[0].id);
       }
+    } else {
+      setSelectedServiceId('');
     }
-  }, [selectedServiceId, services]);
+  }, [filteredServices, selectedServiceId]);
 
   // Handle outside balance trigger
   useEffect(() => {
@@ -295,21 +294,17 @@ export default function Dashboard({
     }
   }, [quickDepositTrigger]);
 
-  const calculateEstimatedCharge = (qty: string, svc: Service | null = selectedService) => {
-    const qtyNum = parseInt(qty, 10);
-    if (!svc || isNaN(qtyNum) || qtyNum <= 0) {
-      setEstimatedCharge(0);
-      return;
-    }
-    const rate = svc.rate;
-    const charge = (qtyNum * rate) / 1000;
-    setEstimatedCharge(parseFloat(charge.toFixed(4)));
-  };
+  // Sync default deposit amount on currency selection change
+  useEffect(() => {
+    const rate = EXCHANGE_RATES[currency] || 1.0;
+    const noDecimals = ['PKR', 'JPY', 'KRW', 'INR', 'VND', 'IDR', 'IQD'].includes(currency);
+    const convertedDefault = 25 * rate;
+    const rounded = noDecimals ? Math.round(convertedDefault) : parseFloat(convertedDefault.toFixed(2));
+    setDepositAmount(rounded.toString());
+  }, [currency]);
 
   const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setQuantity(val);
-    calculateEstimatedCharge(val);
+    setQuantity(e.target.value);
   };
 
   // Place Order Action
@@ -354,7 +349,6 @@ export default function Dashboard({
       setOrderSuccess(`Success! Your order has been placed. Cost charged: $${estimatedCharge.toFixed(3)}.`);
       setTargetLink('');
       setQuantity('');
-      setEstimatedCharge(0);
       onRefreshUser();
       fetchOrders();
     } catch (err: any) {
@@ -392,8 +386,15 @@ export default function Dashboard({
     e.preventDefault();
     setDepositSuccess('');
     const amt = parseFloat(depositAmount);
-    if (isNaN(amt) || amt <= 1) {
-      alert('Please enter a realistic deposit amount greater than $1.');
+    if (isNaN(amt) || amt <= 0) {
+      alert('Please enter a realistic deposit amount.');
+      return;
+    }
+
+    const amtInUSD = convertCurrency(amt, currency, 'USD');
+    if (isNaN(amtInUSD) || amtInUSD <= 1.0) {
+      const minLocal = formatCurrency(convertCurrency(1.01, 'USD', currency), currency);
+      alert(`Please enter a realistic deposit amount greater than ${minLocal} (equivalent to $1 USD).`);
       return;
     }
 
@@ -468,7 +469,7 @@ export default function Dashboard({
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
-          amount: amt,
+          amount: amtInUSD,
           method: depositMethod.replace(' (Instant Auto)', '').replace(' (Manual Ticket)', ''),
           senderDetails,
           type: 'deposit',
@@ -483,12 +484,17 @@ export default function Dashboard({
       }
 
       if (isInstant) {
-        setDepositSuccess(`Automatic Payment Gateway Verified! $${amt.toFixed(2)} USD loaded to your wallet instantly.`);
+        setDepositSuccess(`Automatic Payment Gateway Verified! ${formatCurrency(amt, currency)} (${formatCurrency(amtInUSD, 'USD')}) has been added to your wallet successfully.`);
       } else {
-        setDepositSuccess(`Manual Deposit Ticket Submitted! SMM Admins will verify your reference details and screenshot shortly. Status is now pending.`);
+        setDepositSuccess(`Manual Deposit Ticket Submitted! MK SMM admin agents will verify your screenshot and reference code shortly. Registered amount: ${formatCurrency(amt, currency)}.`);
       }
 
-      setDepositAmount('25');
+      // Reset input value nicely using converted currency defaults
+      const rate = EXCHANGE_RATES[currency] || 1.0;
+      const noDecimals = ['PKR', 'JPY', 'KRW', 'INR', 'VND', 'IDR', 'IQD'].includes(currency);
+      const rounded = noDecimals ? Math.round(25 * rate) : parseFloat((25 * rate).toFixed(2));
+      setDepositAmount(rounded.toString());
+
       setDepositReceiptCode('');
       setSenderPhoneNumber('');
       setScreenshotFile(null);
@@ -1769,11 +1775,11 @@ export default function Dashboard({
                   {/* Amount to Add */}
                   <div>
                     <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest">
-                      2. Input Deposit Amount
+                      2. Input Deposit Amount ({currency})
                     </label>
                     <div className="relative mt-1.5 rounded-xl">
                       <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                        <span className="text-zinc-500 font-mono font-semibold">$</span>
+                        <span className="text-zinc-500 font-mono font-bold">{CURRENCY_SYMBOLS[currency] || '$'}</span>
                       </div>
                       <input
                         id="deposit-input-amount"
@@ -1785,23 +1791,30 @@ export default function Dashboard({
                         className="w-full rounded-xl border border-zinc-850 bg-black pr-14 pl-8 py-3.5 text-sm text-white font-mono focus:border-blue-550 focus:ring-1 focus:ring-blue-550 outline-none"
                       />
                       <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4">
-                        <span className="text-[9px] text-zinc-550 font-black tracking-widest">USD</span>
+                        <span className="text-[10px] text-blue-400 font-mono font-black tracking-wider">{currency}</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Preset Quick Add Buttons */}
+                  {/* Preset Quick Add Buttons with currency-aware symbol and automated conversion */}
                   <div className="grid grid-cols-4 gap-2">
-                    {['15', '50', '150', '350'].map(preset => (
-                      <button
-                        key={preset}
-                        type="button"
-                        onClick={() => setDepositAmount(preset)}
-                        className="border border-zinc-800 rounded-lg py-2 text-xs font-semibold bg-zinc-950/50 hover:border-zinc-700 text-zinc-400 hover:text-white transition-all cursor-pointer"
-                      >
-                        +${preset}
-                      </button>
-                    ))}
+                    {[15, 50, 150, 350].map((presetUSD) => {
+                      const converted = convertCurrency(presetUSD, 'USD', currency);
+                      const noDecimals = ['PKR', 'JPY', 'KRW', 'INR', 'VND', 'IDR', 'IQD'].includes(currency);
+                      const roundedVal = noDecimals ? Math.round(converted) : parseFloat(converted.toFixed(2));
+                      const symbol = CURRENCY_SYMBOLS[currency] || '$';
+                      
+                      return (
+                        <button
+                          key={presetUSD}
+                          type="button"
+                          onClick={() => setDepositAmount(roundedVal.toString())}
+                          className="border border-zinc-850 rounded-xl py-2.5 text-xs font-bold bg-zinc-950/80 hover:border-zinc-700 text-zinc-400 hover:text-white transition-all cursor-pointer hover:bg-zinc-900 shadow-sm"
+                        >
+                          +{symbol}{roundedVal.toLocaleString()}
+                        </button>
+                      );
+                    })}
                   </div>
 
                   {/* Manual proof uploads */}
@@ -1920,21 +1933,27 @@ export default function Dashboard({
                   )}
 
                   {/* Summary card */}
-                  <div className="p-4 rounded-xl border border-zinc-900 bg-zinc-950/20 space-y-1.5 text-xs text-zinc-400">
+                  <div className="p-4 rounded-xl border border-zinc-900 bg-zinc-950/20 space-y-2 text-xs text-zinc-400">
                     <span className="text-[9px] font-black uppercase text-zinc-500 tracking-wider block">Invoice Receipt Summary</span>
-                    <div className="flex justify-between border-b border-zinc-900/60 pb-1.5 text-[11px]">
-                      <span>Invoiced Credit Quota:</span>
-                      <span className="font-mono text-zinc-200 font-bold">${parseFloat(depositAmount || '0').toFixed(2)}</span>
+                    <div className="flex justify-between border-b border-zinc-900/60 pb-2 text-[11px]">
+                      <span>Invoiced Credit Quota ({currency}):</span>
+                      <span className="font-mono text-zinc-200 font-bold">
+                        {formatCurrency(parseFloat(depositAmount || '0'), currency)}
+                      </span>
                     </div>
-                    {['Easypaisa', 'JazzCash'].includes(depositMethod) && (
-                      <div className="flex justify-between text-[10px] border-b border-zinc-900/60 pb-1.5 italic text-zinc-500">
-                        <span>Local equivalent (PKR ~ {EXCHANGE_RATES.PKR}):</span>
-                        <span className="font-mono">PKR ~{(parseFloat(depositAmount || '0') * EXCHANGE_RATES.PKR).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                    {currency !== 'USD' && (
+                      <div className="flex justify-between text-[11px] border-b border-zinc-900/60 pb-2 text-zinc-400">
+                        <span>Account Balance equivalent (USD):</span>
+                        <span className="font-mono text-zinc-300 font-bold">
+                          {formatCurrency(convertCurrency(parseFloat(depositAmount || '0'), currency, 'USD'), 'USD')}
+                        </span>
                       </div>
                     )}
-                    <div className="flex justify-between font-bold pt-1.5 text-[#f4f4f5]">
+                    <div className="flex justify-between font-bold pt-1 text-[#f4f4f5]">
                       <span>Total Debit Payable:</span>
-                      <span className="font-mono text-emerald-450 font-black text-sm">${parseFloat(depositAmount || '0').toFixed(2)} USD</span>
+                      <span className="font-mono text-emerald-450 font-black text-sm">
+                        {formatCurrency(parseFloat(depositAmount || '0'), currency)} {currency}
+                      </span>
                     </div>
                   </div>
 

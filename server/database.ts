@@ -181,6 +181,17 @@ class Database {
   private async initDatabase() {
     try {
       await this.authenticateServer();
+      
+      // Bootstrap SMMCTRL and settings if loaded or present in the local database dataset (safely authenticated now)
+      if (this.data.providers && this.data.providers.length > 0) {
+        for (const provider of this.data.providers) {
+          await this.persistDoc('providers', provider.id, provider);
+        }
+      }
+      
+      if (this.data.settings) {
+        await this.persistDoc('settings', 'panel_config', this.data.settings);
+      }
     } catch (err: any) {
       console.error('[Sync System] Database pre-auth initialization error:', err.message);
     }
@@ -282,7 +293,6 @@ class Database {
             createdAt: new Date().toISOString()
           };
           this.data.providers.push(defaultProvider);
-          this.persistDoc('providers', defaultProvider.id, defaultProvider);
           this.saveCache();
         }
       } else {
@@ -298,7 +308,6 @@ class Database {
           createdAt: new Date().toISOString()
         };
         this.data.providers = [defaultProvider];
-        this.persistDoc('providers', defaultProvider.id, defaultProvider);
         this.saveCache();
       }
     } catch (error) {

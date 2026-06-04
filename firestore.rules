@@ -92,7 +92,7 @@ service cloud.firestore {
     match /wallets/{walletId} {
       allow get: if isOwner(walletId) || isAdmin();
       allow list: if isAdmin();
-      allow create: if isSignedIn() && isOwner(walletId) && isValidWallet(request.resource.data);
+      allow create: if (isSignedIn() && isOwner(walletId) && isValidWallet(request.resource.data)) || (isAdmin() && isValidWallet(request.resource.data));
       allow update: if isAdmin();
       allow delete: if false;
     }

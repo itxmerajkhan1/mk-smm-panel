@@ -108,7 +108,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Monitor Auth User Authentication Status
   useEffect(() => {
+    let profileUnsubscribe: (() => void) | null = null;
+    let notificationUnsubscribe: (() => void) | null = null;
+
     const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
+      // Clean up previous active listeners immediately
+      if (profileUnsubscribe) {
+        profileUnsubscribe();
+        profileUnsubscribe = null;
+      }
+      if (notificationUnsubscribe) {
+        notificationUnsubscribe();
+        notificationUnsubscribe = null;
+      }
+
       setFirebaseUser(currentUser);
       if (!currentUser) {
         setUserProfile(null);
@@ -122,7 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const userDocRef = doc(db, 'users', currentUser.uid);
 
       // Listen to profile updates inside Firestore in real-time
-      const profileUnsubscribe = onSnapshot(userDocRef, async (profileSnap) => {
+      profileUnsubscribe = onSnapshot(userDocRef, async (profileSnap) => {
         if (profileSnap.exists()) {
           const profileData = profileSnap.data() as User;
           
@@ -248,7 +261,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         where('userId', '==', currentUser.uid)
       );
 
-      const notificationUnsubscribe = onSnapshot(notificationQuery, (snap) => {
+      notificationUnsubscribe = onSnapshot(notificationQuery, (snap) => {
         const list: Notification[] = [];
         snap.forEach((d) => {
           list.push({ id: d.id, ...d.data() } as Notification);
@@ -259,14 +272,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }, (err) => {
         handleFirestoreError(err, OperationType.LIST, 'notifications');
       });
-
-      return () => {
-        profileUnsubscribe();
-        notificationUnsubscribe();
-      };
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (profileUnsubscribe) profileUnsubscribe();
+      if (notificationUnsubscribe) notificationUnsubscribe();
+    };
   }, []);
 
   const signInWithGoogle = async () => {

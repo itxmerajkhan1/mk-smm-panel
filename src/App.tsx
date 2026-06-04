@@ -7,6 +7,7 @@ import Auth from './components/Auth';
 import AdminLogin from './components/AdminLogin';
 import Dashboard from './components/Dashboard';
 import AdminDashboard from './components/AdminDashboard';
+import CurrencyDropdown from './components/CurrencyDropdown';
 import { useAuthContext } from './components/AuthContext';
 import { 
   LayoutGrid, ShoppingCart, FileSpreadsheet, ClipboardList, Layers, Wallet, 
@@ -326,21 +327,11 @@ export default function App() {
               <div className="flex items-center gap-3">
 
                 {/* SMM Real Currency Switcher */}
-                <div className="flex items-center gap-1.5 bg-zinc-950 border border-zinc-900 rounded-lg p-1">
-                  {(['PKR', 'USD', 'EUR', 'GBP'] as const).map((currCode) => (
-                    <button
-                      key={currCode}
-                      onClick={() => setCurrency(currCode)}
-                      className={`px-2 py-0.5 text-[8.5px] font-black tracking-wider uppercase rounded transition-colors cursor-pointer ${
-                        currency === currCode 
-                          ? 'bg-blue-600 text-white shadow'
-                          : 'text-zinc-500 hover:text-zinc-300'
-                      }`}
-                    >
-                      {currCode}
-                    </button>
-                  ))}
-                </div>
+                <CurrencyDropdown 
+                  selectedCode={currency}
+                  onChange={(code) => setCurrency(code)}
+                  align="right"
+                />
 
                 {/* Real Live Wallet Balance indicator */}
                 <button 
