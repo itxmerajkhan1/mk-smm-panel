@@ -66,7 +66,17 @@ export default function AdminDashboard({ token, currentUser, onRefreshUser }: Ad
   const [svcForm, setSvcForm] = useState({ category: '', name: '', rate: '', min: '50', max: '10000', description: '' });
   const [catForm, setCatForm] = useState({ name: '', icon: 'Instagram', active: true });
   const [provForm, setProvForm] = useState({ name: '', apiType: 'smm' as const, url: '', apiKey: '', balance: '0', active: true });
-  const [settingsForm, setSettingsForm] = useState({ panelName: '', currency: 'USD', minDeposit: 5, maxDeposit: 10000, maintenanceMode: false, autoSyncServices: false, autoSyncIntervalHours: 6 });
+  const [settingsForm, setSettingsForm] = useState({ 
+    panelName: '', 
+    currency: 'USD', 
+    minDeposit: 5, 
+    maxDeposit: 10000, 
+    maintenanceMode: false, 
+    autoSyncServices: false, 
+    autoSyncIntervalHours: 6,
+    markupPercent: 0,
+    markupFixed: 0
+  });
   const [fundsForm, setFundsForm] = useState({ username: '', amount: '', method: 'Stripe' });
   const [txStatusFilter, setTxStatusFilter] = useState<'all' | 'pending' | 'completed' | 'failed'>('all');
   const [txTypeFilter, setTxTypeFilter] = useState<'all' | 'deposit' | 'withdrawal'>('all');
@@ -114,7 +124,9 @@ export default function AdminDashboard({ token, currentUser, onRefreshUser }: Ad
           maxDeposit: settingsData.maxDeposit || 10000,
           maintenanceMode: !!settingsData.maintenanceMode,
           autoSyncServices: !!settingsData.autoSyncServices,
-          autoSyncIntervalHours: settingsData.autoSyncIntervalHours || 6
+          autoSyncIntervalHours: settingsData.autoSyncIntervalHours || 6,
+          markupPercent: settingsData.markupPercent || 0,
+          markupFixed: settingsData.markupFixed || 0
         });
       }
       if (logsData && Array.isArray(logsData)) setAuditLogs(logsData);
@@ -1970,6 +1982,67 @@ export default function AdminDashboard({ token, currentUser, onRefreshUser }: Ad
                           </div>
                         </div>
                       )}
+
+                      {/* SMM Markup and Pricing Options */}
+                      <div className="p-4 bg-indigo-50/10 dark:bg-zinc-950/20 border border-indigo-200/20 rounded-2xl space-y-4">
+                        <h4 className="text-[10px] font-bold uppercase tracking-wider text-indigo-550 dark:text-indigo-450 flex items-center gap-1.5">
+                          <span>SMM Margin & Markup Controls</span>
+                        </h4>
+                        
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block mb-1 text-[10px] uppercase font-semibold text-gray-500">Percentage Markup (%)</label>
+                            <input 
+                              type="number"
+                              min="0"
+                              step="0.1"
+                              required
+                              value={settingsForm.markupPercent}
+                              onChange={(e) => setSettingsForm({...settingsForm, markupPercent: parseFloat(e.target.value) || 0})}
+                              className="w-full bg-white dark:bg-zinc-950 border px-3 py-2 rounded-xl font-mono text-center"
+                              placeholder="e.g. 30"
+                            />
+                            <span className="text-[9px] text-gray-400 mt-1 block">Incremental percentage relative to cost (e.g., 30 for 30% markup)</span>
+                          </div>
+                          <div>
+                            <label className="block mb-1 text-[10px] uppercase font-semibold text-gray-500">Fixed Markup ($)</label>
+                            <input 
+                              type="number"
+                              min="0"
+                              step="0.0001"
+                              required
+                              value={settingsForm.markupFixed}
+                              onChange={(e) => setSettingsForm({...settingsForm, markupFixed: parseFloat(e.target.value) || 0})}
+                              className="w-full bg-white dark:bg-zinc-950 border px-3 py-2 rounded-xl font-mono text-center"
+                              placeholder="e.g. 0.20"
+                            />
+                            <span className="text-[9px] text-gray-400 mt-1 block">Fixed dollar offset added to every single price (e.g., 0.20)</span>
+                          </div>
+                        </div>
+
+                        {/* Interactive Profit Calculator */}
+                        <div className="p-3.5 rounded-xl bg-white dark:bg-zinc-900/10 border border-gray-200 dark:border-zinc-800 mt-2 text-xs">
+                          <span className="font-extrabold uppercase text-[9px] text-emerald-600 dark:text-emerald-400 block mb-1.5">Interactive Profit Simulator</span>
+                          <div className="space-y-1.5 text-gray-500 dark:text-zinc-400 font-mono text-[11px]">
+                            <div className="flex justify-between items-center bg-gray-50/50 dark:bg-zinc-900/30 p-2 rounded-lg">
+                              <span>Provider Cost Price (per 1K):</span>
+                              <span className="font-bold text-gray-800 dark:text-zinc-200">$1.00</span>
+                            </div>
+                            <div className="flex justify-between items-center bg-gray-50/50 dark:bg-zinc-900/30 p-2 rounded-lg">
+                              <span>Applied Pricing Formula:</span>
+                              <span className="font-bold text-gray-800 dark:text-zinc-200">Cost × (1 + {(settingsForm.markupPercent || 0)}%) + ${(settingsForm.markupFixed || 0).toFixed(4)}</span>
+                            </div>
+                            <div className="flex justify-between items-center bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 p-2 rounded-lg">
+                              <span>Customer Retail Price (per 1K):</span>
+                              <span className="font-bold">${(1.0 * (1 + (settingsForm.markupPercent || 0) / 100) + (settingsForm.markupFixed || 0)).toFixed(4)}</span>
+                            </div>
+                            <div className="flex justify-between items-center bg-indigo-500/10 text-indigo-700 dark:text-indigo-450 p-2 rounded-lg mt-1 font-semibold">
+                              <span>Direct Profit Earned (per 1K):</span>
+                              <span className="font-bold">${((1.0 * (1 + (settingsForm.markupPercent || 0) / 100) + (settingsForm.markupFixed || 0)) - 1.0).toFixed(4)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="text-right">

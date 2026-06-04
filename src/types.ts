@@ -43,6 +43,9 @@ export interface Service {
   cancel?: boolean;
   providerId?: string; // Linked provider node ID
   originalServiceId?: string; // Service ID in provider API
+  providerPrice?: number;     // Original price from provider API
+  customerPrice?: number;     // Marked-up price for customer (same as rate)
+  profitAmount?: number;      // Calculated profit per 1000 items
 }
 
 export interface Order {
@@ -59,6 +62,9 @@ export interface Order {
   remains: number;
   status: OrderStatus;
   createdAt: string;
+  providerPrice?: number;     // Provider rate per 1000 items at time of placement
+  providerCost?: number;      // Wholesale cost for this specific order
+  profit?: number;            // Computed net profit for this order
 }
 
 export interface TicketReply {
@@ -151,6 +157,8 @@ export interface PanelSettings {
   autoSyncServices?: boolean;
   autoSyncIntervalHours?: number;
   lastSyncTime?: string;
+  markupPercent?: number;     // Percentage markup (e.g., 30 for 30%)
+  markupFixed?: number;       // Fixed dollar markup (e.g., 0.20)
 }
 
 export interface Referral {

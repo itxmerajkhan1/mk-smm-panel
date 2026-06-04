@@ -10,11 +10,50 @@
         "email": { "type": "string" },
         "role": { "type": "string" },
         "balance": { "type": "number" },
+        "currency": { "type": "string" },
         "status": { "type": "string" },
         "apiKey": { "type": "string" },
-        "createdAt": { "type": "string" }
+        "createdAt": { "type": "string" },
+        "referredBy": { "type": "string" },
+        "referralEarnings": { "type": "number" },
+        "referralCount": { "type": "number" }
       },
       "required": ["id", "username", "email", "role", "balance", "status", "apiKey", "createdAt"]
+    },
+    "Category": {
+      "title": "Service Catalog Category",
+      "description": "Category for classifying SMM services",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "icon": { "type": "string" },
+        "active": { "type": "boolean" }
+      },
+      "required": ["id", "name", "icon", "active"]
+    },
+    "Service": {
+      "title": "SMM Catalog Service",
+      "description": "Reseller or local SMM service catalog details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "category": { "type": "string" },
+        "name": { "type": "string" },
+        "rate": { "type": "number" },
+        "min": { "type": "integer" },
+        "max": { "type": "integer" },
+        "description": { "type": "string" },
+        "active": { "type": "boolean" },
+        "refill": { "type": "boolean" },
+        "cancel": { "type": "boolean" },
+        "providerId": { "type": "string" },
+        "originalServiceId": { "type": "string" },
+        "providerPrice": { "type": "number" },
+        "customerPrice": { "type": "number" },
+        "profitAmount": { "type": "number" }
+      },
+      "required": ["id", "category", "name", "rate", "min", "max", "description", "active"]
     },
     "Order": {
       "title": "SMM Order",
@@ -23,14 +62,20 @@
       "properties": {
         "id": { "type": "string" },
         "userId": { "type": "string" },
+        "username": { "type": "string" },
         "serviceId": { "type": "string" },
+        "serviceName": { "type": "string" },
+        "category": { "type": "string" },
         "link": { "type": "string" },
         "quantity": { "type": "integer" },
         "charge": { "type": "number" },
         "startCount": { "type": "integer" },
         "remains": { "type": "integer" },
         "status": { "type": "string" },
-        "createdAt": { "type": "string" }
+        "createdAt": { "type": "string" },
+        "providerPrice": { "type": "number" },
+        "providerCost": { "type": "number" },
+        "profit": { "type": "number" }
       },
       "required": ["id", "userId", "serviceId", "link", "quantity", "charge", "startCount", "remains", "status", "createdAt"]
     },
@@ -41,9 +86,11 @@
       "properties": {
         "id": { "type": "string" },
         "userId": { "type": "string" },
+        "username": { "type": "string" },
         "subject": { "type": "string" },
         "message": { "type": "string" },
         "status": { "type": "string" },
+        "replies": { "type": "array" },
         "createdAt": { "type": "string" }
       },
       "required": ["id", "userId", "subject", "message", "status", "createdAt"]
@@ -55,10 +102,15 @@
       "properties": {
         "id": { "type": "string" },
         "userId": { "type": "string" },
+        "username": { "type": "string" },
         "amount": { "type": "number" },
         "method": { "type": "string" },
         "status": { "type": "string" },
-        "createdAt": { "type": "string" }
+        "createdAt": { "type": "string" },
+        "type": { "type": "string" },
+        "senderDetails": { "type": "string" },
+        "adminNotes": { "type": "string" },
+        "screenshotUrl": { "type": "string" }
       },
       "required": ["id", "userId", "amount", "method", "status", "createdAt"]
     },
@@ -75,6 +127,96 @@
         "createdAt": { "type": "string" }
       },
       "required": ["id", "userId", "title", "message", "read", "createdAt"]
+    },
+    "Provider": {
+      "title": "API Service Provider",
+      "description": "SMM Reseller/Wholesaler Provider Connection Config",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "apiType": { "type": "string" },
+        "url": { "type": "string" },
+        "apiKey": { "type": "string" },
+        "balance": { "type": "number" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "apiType", "url", "active", "createdAt"]
+    },
+    "AuditLog": {
+      "title": "System Audit Log",
+      "description": "Security audit trails for admin updates",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "username": { "type": "string" },
+        "action": { "type": "string" },
+        "details": { "type": "string" },
+        "ipAddress": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "username", "action", "details", "createdAt"]
+    },
+    "Referral": {
+      "title": "Affiliate Referral Link tracking",
+      "description": "Mapping of reference links usage tracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "referrerId": { "type": "string" },
+        "referredId": { "type": "string" },
+        "referredUsername": { "type": "string" },
+        "referredEmail": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "commissionsEarned": { "type": "number" }
+      },
+      "required": ["id", "referrerId", "referredId", "createdAt"]
+    },
+    "Commission": {
+      "title": "Affiliate referral commission payment",
+      "description": "Commissions paid based on referrals",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "referrerId": { "type": "string" },
+        "referredId": { "type": "string" },
+        "referredUsername": { "type": "string" },
+        "transactionId": { "type": "string" },
+        "transactionAmount": { "type": "number" },
+        "commissionAmount": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "referrerId", "referredId", "transactionId", "commissionAmount", "createdAt"]
+    },
+    "Announcement": {
+      "title": "Board Announcements",
+      "description": "Public or private notifications on dashboard",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "title", "message", "createdAt"]
+    },
+    "Wallet": {
+      "title": "Multi-currency Wallet",
+      "description": "SMM panel user cash balances across currencies",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "USD": { "type": "number" },
+        "PKR": { "type": "number" },
+        "EUR": { "type": "number" },
+        "GBP": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "updatedAt"]
     }
   },
   "firestore": {
@@ -97,6 +239,38 @@
     "/notifications/{notificationId}": {
       "schema": "#/entities/Notification",
       "description": "User system and broadcast notifications"
+    },
+    "/categories/{categoryId}": {
+      "schema": "#/entities/Category",
+      "description": "Service categories"
+    },
+    "/services/{serviceId}": {
+      "schema": "#/entities/Service",
+      "description": "SMM catalog Services details"
+    },
+    "/providers/{providerId}": {
+      "schema": "#/entities/Provider",
+      "description": "Wholesale SMM api providers"
+    },
+    "/wallets/{walletId}": {
+      "schema": "#/entities/Wallet",
+      "description": "Multi-currency user balances"
+    },
+    "/referrals/{referralId}": {
+      "schema": "#/entities/Referral",
+      "description": "Affiliate refer links system"
+    },
+    "/commissions/{commissionId}": {
+      "schema": "#/entities/Commission",
+      "description": "Paid commissions listing ledger"
+    },
+    "/announcements/{announcementId}": {
+      "schema": "#/entities/Announcement",
+      "description": "System board bulletin feed"
+    },
+    "/auditLogs/{logId}": {
+      "schema": "#/entities/AuditLog",
+      "description": "Security event logging trails of actions"
     }
   }
 }

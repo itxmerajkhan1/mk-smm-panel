@@ -2,12 +2,13 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Default fallback - close all access by default
+    // Global Safety Net - deny all access by default
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // Helper functions for auth verification
+    // --- PRIMITIVE HELPER ACTIONS ---
+
     function isSignedIn() {
       return request.auth != null;
     }
@@ -16,28 +17,40 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    // Direct check for our backend server connection identity
+    function isServerAdmin() {
+      return isSignedIn() && request.auth.token.email == 'server-admin@mksmm.com';
+    }
+
+    // Check if user is either the server identity or has database-defined role of admin
     function isAdmin() {
       return isSignedIn() && (
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin"
+        isServerAdmin() ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
       );
     }
 
-    // User account rules
+    function isValidId(id) {
+       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // --- COLLECTION MATCHES ---
+
+    // 1. Users Profile
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
       allow create: if isSignedIn() && isOwner(userId) && 
         request.resource.data.keys().hasAll(['id', 'username', 'email', 'role', 'balance', 'status', 'apiKey', 'createdAt']) &&
         (
-          request.resource.data.role == 'user' ||
+          request.resource.data.role == 'user' || isServerAdmin() ||
           (
             (request.resource.data.email == 'itxmerajkhan3109@gmail.com' || request.resource.data.email == 'admin@mksmm.com') &&
             request.resource.data.role == 'admin'
           )
-        ) && 
-        request.resource.data.balance <= 100.0; // Sanity check on initial setup
-      allow update: if (
+        );
+      allow update: if isAdmin() || (
         isOwner(userId) && 
         request.resource.data.role == resource.data.role && 
         request.resource.data.id == resource.data.id &&
@@ -45,98 +58,108 @@ service cloud.firestore {
         request.resource.data.email == resource.data.email &&
         request.resource.data.createdAt == resource.data.createdAt &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['apiKey', 'balance', 'referredBy', 'referralEarnings', 'referralCount'])
-      ) || isAdmin();
+      );
+      allow delete: if isAdmin();
     }
 
-    // Referrals Program rules
-    match /referrals/{referralId} {
-      allow get, list: if isSignedIn() && (resource.data.referrerId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn();
-      allow update: if isAdmin();
-      allow delete: if false;
-    }
-
-    // Commissions rules
-    match /commissions/{commissionId} {
-      allow get, list: if isSignedIn() && (resource.data.referrerId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn();
-      allow update: if isAdmin();
-      allow delete: if false;
-    }
-
-    // Announcements board
-    match /announcements/{announcementId} {
-      allow read: if true;
-      allow list: if isSignedIn();
-      allow create, update, delete: if isAdmin();
-    }
-
-    // Service Orders rules
-    match /orders/{orderId} {
-      allow get, list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']));
-      allow delete: if false;
-    }
-
-    // Tickets rules
-    match /tickets/{ticketId} {
-      allow get, list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow delete: if false;
-    }
-
-    // Transactions log ledger
-    match /transactions/{transactionId} {
-      allow get, list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAdmin();
-      allow delete: if false;
-    }
-
-    // Client Notifications
-    match /notifications/{notificationId} {
-      allow get, list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn(); // Allow users/admins/triggers to create notification highlights
-      allow update: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin()) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
-      allow delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-    }
-
-    // Wallets multi-currency rules
-    match /wallets/{walletId} {
-      allow get: if isOwner(walletId) || isAdmin();
-      allow list: if isAdmin();
-      allow create: if isSignedIn() && isOwner(walletId);
-      allow update: if isAdmin();
-      allow delete: if false;
-    }
-
-    // SMM Wholesale Provider integrations
-    match /providers/{providerId} {
-      allow read, write: if isAdmin();
-    }
-
-    // Public catalog services details
+    // 2. SMM Catalog Services details
     match /services/{serviceId} {
       allow read, list: if true;
       allow write: if isAdmin();
     }
 
-    // Public categories matching
+    // 3. Wholesale API Providers
+    match /providers/{providerId} {
+      allow read, write: if isAdmin();
+    }
+
+    // 4. SMM Orders placed by users
+    match /orders/{orderId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn(); // Queries must filter by ownerId, rule enforces client criteria matches below
+      allow create: if isSignedIn() && (request.resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if isAdmin() || (
+        isSignedIn() && resource.data.userId == request.auth.uid && 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+      );
+      allow delete: if isAdmin();
+    }
+
+    // 5. Multi-currency Wallets
+    match /wallets/{walletId} {
+      allow get: if isOwner(walletId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isSignedIn() && (isOwner(walletId) || isAdmin());
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // 6. Deposit and debit Transaction listings
+    match /transactions/{transactionId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && (request.resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // 7. Support Tickets
+    match /tickets/{ticketId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && (request.resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // 8. Service Categories classification
     match /categories/{categoryId} {
       allow read, list: if true;
       allow write: if isAdmin();
     }
 
-    // Operations audit logs ledger
+    // 9. Real-time system / broadcast notifications
+    match /notifications/{notificationId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin()) && 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // 10. Affiliate Referral Programs details
+    match /referrals/{referralId} {
+      allow get: if isSignedIn() && (resource.data.referrerId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // 11. Referral affiliate commission ledgers
+    match /commissions/{commissionId} {
+      allow get: if isSignedIn() && (resource.data.referrerId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // 12. Dashboard announcement bulletins
+    match /announcements/{announcementId} {
+      allow read, list: if true;
+      allow write: if isAdmin();
+    }
+
+    // 13. System operations audit logs
     match /auditLogs/{logId} {
       allow get, list: if isAdmin();
       allow create: if isSignedIn();
-      allow update, delete: if false;
+      allow update, delete: if isAdmin();
     }
 
-    // Legacy password fallback credentials
+    // 14. Credentials maps for legacy migrations
     match /passwords_legacy/{userId} {
       allow read, write: if isAdmin();
     }

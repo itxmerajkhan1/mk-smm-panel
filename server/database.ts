@@ -20,6 +20,11 @@ import {
   onSnapshot
 } from 'firebase/firestore';
 import { 
+  getAuth, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword 
+} from 'firebase/auth';
+import { 
   User, 
   Service, 
   Order, 
@@ -47,6 +52,7 @@ try {
 
 const firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const fdb = getFirestore(firebaseApp, firebaseConfig?.firestoreDatabaseId);
+export const auth = getAuth(firebaseApp);
 
 const DB_FILE = path.join(process.cwd(), 'database_store.json');
 
@@ -95,6 +101,53 @@ export function convertCurrency(amount: number, from: string, to: string): numbe
   return parseFloat((amountInUSD * toRate).toFixed(4));
 }
 
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  }
+}
+
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid || null,
+      email: auth.currentUser?.email || null,
+      emailVerified: auth.currentUser?.emailVerified || null,
+      isAnonymous: auth.currentUser?.isAnonymous || null,
+      tenantId: auth.currentUser?.tenantId || null,
+      providerInfo: auth.currentUser?.providerData?.map(provider => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.error('[Sync Database System] Conforming Firestore Error:', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
 class Database {
   private data: DatabaseSchema;
 
@@ -124,7 +177,53 @@ class Database {
       wallets: []
     };
     this.loadCache();
-    this.setupSync();
+    this.initializeServerSession().finally(() => {
+      this.setupSync();
+    });
+  }
+
+  // Authenticate backend server session with Firestore using dedicated server-admin role
+  private async initializeServerSession() {
+    const email = 'server-admin@mksmm.com';
+    const password = 'SuperSecureSMMServerAdmin2026!';
+    try {
+      console.log(`[Sync Database Engine] Attempting to sign in as dedicated backend credential user: ${email}...`);
+      await signInWithEmailAndPassword(auth, email, password);
+      console.log(`[Sync Database Engine] Successfully authenticated backend server session as ${email}`);
+    } catch (err: any) {
+      if (
+        err.code === 'auth/user-not-found' || 
+        err.code === 'auth/invalid-credential' || 
+        err.message?.includes('user-not-found') || 
+        err.message?.includes('INVALID_LOGIN_CREDENTIALS')
+      ) {
+        console.log(`[Sync Database Engine] Server credentials account ${email} not found. Creating it...`);
+        try {
+          const userCred = await createUserWithEmailAndPassword(auth, email, password);
+          console.log(`[Sync Database Engine] Created dedicated server credentials account ${email}`);
+          
+          // Seed the new server account user profile as an admin in Firestore
+          const id = userCred.user.uid;
+          const newProfile = {
+            id,
+            username: 'server_admin',
+            email,
+            role: 'admin',
+            balance: 1000000,
+            status: 'active',
+            apiKey: 'mk_api_server_live_' + Math.random().toString(36).substr(2, 14),
+            createdAt: new Date().toISOString()
+          };
+          
+          await setDoc(doc(fdb, 'users', id), newProfile);
+          console.log('[Sync Database Engine] Saved default user profile for server credentials account');
+        } catch (createErr: any) {
+          console.error('[Sync Database Engine] Failed to create dedicated server account:', createErr.message);
+        }
+      } else {
+        console.error('[Sync Database Engine] Unexpected authentication error during server boot:', err.message);
+      }
+    }
   }
 
   // Load local memory cache instantly to avoid blanks
@@ -158,8 +257,38 @@ class Database {
           announcements: parsed.announcements || [],
           wallets: parsed.wallets || []
         };
+
+        // Bootstrap SMMCTRL if not present in the loaded dataset
+        const hasSmmctrl = this.data.providers.some(p => p.url && p.url.includes('smmctrl.com'));
+        if (!hasSmmctrl) {
+          const defaultProvider: Provider = {
+            id: 'prov_smmctrl',
+            name: 'SMMCTRL',
+            apiType: 'smm',
+            url: 'https://smmctrl.com/api/v2',
+            apiKey: '',
+            balance: 0,
+            active: true,
+            createdAt: new Date().toISOString()
+          };
+          this.data.providers.push(defaultProvider);
+          this.persistDoc('providers', defaultProvider.id, defaultProvider);
+          this.saveCache();
+        }
       } else {
-        // Seeding only raw default production settings (no mock data!)
+        // Seeding only raw default SMMCTRL provider setting (zero mock lists!)
+        const defaultProvider: Provider = {
+          id: 'prov_smmctrl',
+          name: 'SMMCTRL',
+          apiType: 'smm',
+          url: 'https://smmctrl.com/api/v2',
+          apiKey: '',
+          balance: 0,
+          active: true,
+          createdAt: new Date().toISOString()
+        };
+        this.data.providers = [defaultProvider];
+        this.persistDoc('providers', defaultProvider.id, defaultProvider);
         this.saveCache();
       }
     } catch (error) {
@@ -191,9 +320,11 @@ class Database {
           this.saveCache();
         }, (err) => {
           console.error(`[Sync System] onSnapshot failed for ${colName}:`, err.message);
+          handleFirestoreError(err, OperationType.GET, colName);
         });
       } catch (err: any) {
         console.error(`[Sync System] Failed to register onSnapshot for ${colName}:`, err.message);
+        handleFirestoreError(err, OperationType.GET, colName);
       }
     };
 
@@ -219,6 +350,21 @@ class Database {
 
     // 5. Providers sync
     syncCollection('providers', d => d, list => {
+      const hasSmmctrl = list.some(p => p.url && p.url.includes('smmctrl.com'));
+      if (!hasSmmctrl) {
+        const defaultProvider: Provider = {
+          id: 'prov_smmctrl',
+          name: 'SMMCTRL',
+          apiType: 'smm',
+          url: 'https://smmctrl.com/api/v2',
+          apiKey: '',
+          balance: 0,
+          active: true,
+          createdAt: new Date().toISOString()
+        };
+        list.push(defaultProvider);
+        this.persistDoc('providers', defaultProvider.id, defaultProvider);
+      }
       this.data.providers = list;
     });
 
@@ -269,6 +415,7 @@ class Database {
         }
       }, (err) => {
         console.error('[Sync System] Settings listener error:', err.message);
+        handleFirestoreError(err, OperationType.GET, 'settings/panel_config');
       });
     } catch (err: any) {
       console.error('[Sync System] Failed to bind settings listener:', err.message);
@@ -292,6 +439,7 @@ class Database {
       await setDoc(doc(fdb, colName, id), docData);
     } catch (err: any) {
       console.error(`[Sync Database System] Failed to persist ${colName}/${id}:`, err.message);
+      handleFirestoreError(err, OperationType.WRITE, `${colName}/${id}`);
     }
   }
 
@@ -300,6 +448,7 @@ class Database {
       await deleteDoc(doc(fdb, colName, id));
     } catch (err: any) {
       console.error(`[Sync Database System] Failed to delete ${colName}/${id}:`, err.message);
+      handleFirestoreError(err, OperationType.DELETE, `${colName}/${id}`);
     }
   }
 

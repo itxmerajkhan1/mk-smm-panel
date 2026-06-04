@@ -347,6 +347,10 @@ app.post('/api/orders/place', authenticateToken, (req: AuthenticatedRequest, res
     // Deduct and save order
     db.updateUser(userId, { balance: parseFloat((user.balance - charge).toFixed(4)) });
 
+    const providerPrice = service.providerPrice !== undefined ? service.providerPrice : service.rate * 0.65;
+    const providerCost = parseFloat(((qtyVal * providerPrice) / 1000).toFixed(4));
+    const profit = parseFloat((charge - providerCost).toFixed(4));
+
     const newOrder = db.createOrder({
       userId,
       serviceId,
@@ -355,7 +359,10 @@ app.post('/api/orders/place', authenticateToken, (req: AuthenticatedRequest, res
       charge,
       startCount: Math.floor(100 + Math.random() * 5000), // Random simulated starter counts
       remains: qtyVal,
-      status: 'pending'
+      status: 'pending',
+      providerPrice,
+      providerCost,
+      profit
     });
 
     res.status(201).json({
@@ -817,7 +824,7 @@ app.get('/api/admin/stats', authenticateToken, requireAdmin, (req, res) => {
     const tickets = db.getTickets();
 
     const activeUsers = users.filter(u => u.status === 'active').length;
-    const totalProfit = orders.reduce((sum, o) => sum + o.charge, 0) * 0.35; // Simulating 35% standard margin
+    const totalProfit = orders.reduce((sum, o) => sum + (o.profit !== undefined ? o.profit : o.charge * 0.35), 0);
     const pendingOrders = orders.filter(o => o.status === 'pending' || o.status === 'processing').length;
     const openTickets = tickets.filter(t => t.status === 'open').length;
 
@@ -898,9 +905,10 @@ app.get('/api/admin/analytics', authenticateToken, requireAdmin, (req, res) => {
     // 2. Populate orders metrics (revenue, profit, counts)
     orders.forEach(o => {
       const oDate = o.createdAt?.substring(0, 10);
+      const oProfit = o.profit !== undefined ? o.profit : o.charge * 0.35;
       if (oDate && dailyData[oDate]) {
         dailyData[oDate].revenue += o.charge;
-        dailyData[oDate].profit += (o.charge * 0.35); // standard 35% margin
+        dailyData[oDate].profit += oProfit;
         dailyData[oDate].orderCount += 1;
       }
 
@@ -912,7 +920,7 @@ app.get('/api/admin/analytics', authenticateToken, requireAdmin, (req, res) => {
         const targetKey = keys[11 - ageWeeks];
         if (targetKey && weeklyData[targetKey]) {
           weeklyData[targetKey].revenue += o.charge;
-          weeklyData[targetKey].profit += (o.charge * 0.35);
+          weeklyData[targetKey].profit += oProfit;
           weeklyData[targetKey].orderCount += 1;
         }
       }
@@ -924,7 +932,7 @@ app.get('/api/admin/analytics', authenticateToken, requireAdmin, (req, res) => {
         const targetKey = keys[11 - ageMonths];
         if (targetKey && monthlyData[targetKey]) {
           monthlyData[targetKey].revenue += o.charge;
-          monthlyData[targetKey].profit += (o.charge * 0.35);
+          monthlyData[targetKey].profit += oProfit;
           monthlyData[targetKey].orderCount += 1;
         }
       }
@@ -1397,6 +1405,27 @@ app.delete('/api/admin/providers/:id', authenticateToken, requireAdmin, (req: Au
 
 /* ================= SERVICE SYNCHRONIZATION SYSTEM & ENDPOINTS ================= */
 
+function applyMarkupToServices(settings: any) {
+  const services = db.getServices();
+  const markupPercent = settings.markupPercent || 0;
+  const markupFixed = settings.markupFixed || 0;
+
+  for (const svc of services) {
+    if (svc.providerId) {
+      const providerPrice = svc.providerPrice !== undefined ? svc.providerPrice : svc.rate;
+      const customerPrice = parseFloat((providerPrice * (1 + markupPercent / 100) + markupFixed).toFixed(4));
+      const profitAmount = parseFloat((customerPrice - providerPrice).toFixed(4));
+
+      db.updateService(svc.id, {
+        customerPrice,
+        profitAmount,
+        providerPrice,
+        rate: customerPrice
+      });
+    }
+  }
+}
+
 async function syncProviderServices(providerId?: string, isAuto = false): Promise<{ success: boolean; added: number; updated: number; disabled: number; error?: string }> {
   try {
     const providers = db.getProviders();
@@ -1412,19 +1441,27 @@ async function syncProviderServices(providerId?: string, isAuto = false): Promis
     let totalUpdated = 0;
     let totalDisabled = 0;
 
+    const settings = db.getSettings();
+    const markupPercent = settings.markupPercent || 0;
+    const markupFixed = settings.markupFixed || 0;
+
     for (const prov of targetProviders) {
       let fetchedServices: any[] = [];
       let fetchFailed = false;
 
       try {
+        console.log(`[Sync System] Dispatching POST request to provider URL: ${prov.url}`);
         const response = await fetch(prov.url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          headers: { 
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+          },
           body: new URLSearchParams({
-            key: prov.apiKey,
+            key: prov.apiKey || '',
             action: 'services'
           }),
-          signal: AbortSignal.timeout(5000)
+          signal: AbortSignal.timeout(15000)
         });
 
         if (response.ok) {
@@ -1434,23 +1471,29 @@ async function syncProviderServices(providerId?: string, isAuto = false): Promis
           } else if (data && typeof data === 'object' && Array.isArray(data.services)) {
             fetchedServices = data.services;
           } else {
+            console.error(`[Sync System] Invalid format returned from provider ${prov.name}`);
             fetchFailed = true;
           }
         } else {
+          console.error(`[Sync System] HTTP status error ${response.status} from provider ${prov.name}`);
           fetchFailed = true;
         }
-      } catch (err) {
+      } catch (err: any) {
+        console.error(`[Sync System] Exception while querying provider ${prov.name}:`, err.message);
         fetchFailed = true;
       }
 
+      // If remote fetching fails completely (such as network blocks/timeout), 
+      // fallback to standard high-speed base services so user has an active catalog,
+      // but still flag the log warning.
       if (fetchFailed || fetchedServices.length === 0) {
-        // Fallback simulation engine for sandbox compatibility
+        console.log('[Sync System] Remote fetch yielded empty list or connection timed out. Booting offline standby fallback catalog.');
         fetchedServices = [
           {
             service: "1001",
             name: `${prov.name} - Instagram Likes [Active Profiles / High Speed]`,
             category: "Instagram - Likes",
-            rate: prov.id === 'prov_1' ? "0.38" : "0.41",
+            rate: "0.38",
             min: "50",
             max: "20000",
             refill: true,
@@ -1460,7 +1503,7 @@ async function syncProviderServices(providerId?: string, isAuto = false): Promis
             service: "1002",
             name: `${prov.name} - Instagram Followers [Elite High-Retention / Non-Drop]`,
             category: "Instagram - Followers",
-            rate: prov.id === 'prov_1' ? "1.45" : "1.60",
+            rate: "1.45",
             min: "100",
             max: "50000",
             refill: true,
@@ -1470,7 +1513,7 @@ async function syncProviderServices(providerId?: string, isAuto = false): Promis
             service: "1003",
             name: `${prov.name} - TikTok Core Views [Instant Delivery / Viral Potential]`,
             category: "TikTok - Views",
-            rate: prov.id === 'prov_1' ? "0.05" : "0.06",
+            rate: "0.05",
             min: "100",
             max: "1000000",
             refill: false,
@@ -1480,7 +1523,7 @@ async function syncProviderServices(providerId?: string, isAuto = false): Promis
             service: "1004",
             name: `${prov.name} - YouTube Organic Subscribers [Steady Flow / Lifetime Guaranteed]`,
             category: "YouTube - Subscribers",
-            rate: prov.id === 'prov_1' ? "14.95" : "15.80",
+            rate: "14.95",
             min: "50",
             max: "5000",
             refill: true,
@@ -1490,7 +1533,7 @@ async function syncProviderServices(providerId?: string, isAuto = false): Promis
             service: "1005",
             name: `${prov.name} - X (Twitter) Standard Retweets [Active Real Feeds]`,
             category: "X (Twitter) - Retweets",
-            rate: prov.id === 'prov_1' ? "4.50" : "4.90",
+            rate: "4.50",
             min: "20",
             max: "5000",
             refill: true,
@@ -1500,7 +1543,7 @@ async function syncProviderServices(providerId?: string, isAuto = false): Promis
             service: "1006",
             name: `${prov.name} - Facebook Post Reacts [Real Profile / Instant Start]`,
             category: "Facebook - Interactive",
-            rate: prov.id === 'prov_1' ? "0.98" : "1.10",
+            rate: "0.98",
             min: "10",
             max: "15000",
             refill: false,
@@ -1509,16 +1552,19 @@ async function syncProviderServices(providerId?: string, isAuto = false): Promis
         ];
       }
 
+      // Create categories automatically ensuring no duplications
       const currentCategories = db.getCategories();
+      const seenCategories = new Set(currentCategories.map(c => c.name.toLowerCase()));
       for (const svc of fetchedServices) {
         const catName = svc.category || 'General';
-        const exists = currentCategories.some(c => c.name.toLowerCase() === catName.toLowerCase());
-        if (!exists) {
+        const catNameLower = catName.toLowerCase();
+        if (!seenCategories.has(catNameLower)) {
           db.createCategory({
             name: catName,
-            icon: catName.startsWith('Instagram') ? 'Instagram' : catName.startsWith('YouTube') ? 'Youtube' : catName.startsWith('TikTok') ? 'Tv' : catName.startsWith('X') ? 'Twitter' : 'Layers',
+            icon: catName.toLowerCase().includes('instagram') ? 'Instagram' : catName.toLowerCase().includes('youtube') ? 'Youtube' : catName.toLowerCase().includes('tiktok') ? 'Tv' : catName.toLowerCase().includes('twitter') || catName.toLowerCase().includes('x ') ? 'Twitter' : 'Layers',
             active: true
           });
+          seenCategories.add(catNameLower);
         }
       }
 
@@ -1529,16 +1575,27 @@ async function syncProviderServices(providerId?: string, isAuto = false): Promis
         const extId = String(fetchedSvc.service || fetchedSvc.id);
         const matched = currentServices.find(s => s.providerId === prov.id && s.originalServiceId === extId);
 
+        // --- Custom Pricing Markup Calculations ---
+        const providerPrice = parseFloat(fetchedSvc.rate || '0');
+        // Example: Provider Price = $1.00
+        // markupPercent = 30%, markupFixed = $0.20
+        // Customer Price = Provider Price * (1 + markupPercent / 100) + markupFixed
+        const customerPrice = parseFloat((providerPrice * (1 + markupPercent / 100) + markupFixed).toFixed(4));
+        const profitAmount = parseFloat((customerPrice - providerPrice).toFixed(4));
+
         if (matched) {
           db.updateService(matched.id, {
             name: fetchedSvc.name,
             category: fetchedSvc.category || 'General',
-            rate: parseFloat(fetchedSvc.rate || '0'),
+            rate: customerPrice, // Customer retail price
             min: parseInt(fetchedSvc.min || '0', 10),
             max: parseInt(fetchedSvc.max || '0', 10),
             active: true,
             refill: fetchedSvc.refill === true || String(fetchedSvc.refill).toLowerCase() === 'true',
-            cancel: fetchedSvc.cancel === true || String(fetchedSvc.cancel).toLowerCase() === 'true'
+            cancel: fetchedSvc.cancel === true || String(fetchedSvc.cancel).toLowerCase() === 'true',
+            providerPrice,
+            customerPrice,
+            profitAmount
           });
           matchedLocalServiceIds.push(matched.id);
           totalUpdated++;
@@ -1546,15 +1603,18 @@ async function syncProviderServices(providerId?: string, isAuto = false): Promis
           const newSvc = db.createService({
             category: fetchedSvc.category || 'General',
             name: fetchedSvc.name,
-            rate: parseFloat(fetchedSvc.rate || '0'),
+            rate: customerPrice, // Customer retail price
             min: parseInt(fetchedSvc.min || '0', 10),
             max: parseInt(fetchedSvc.max || '0', 10),
             active: true,
-            description: `Imported via standard reseller API syncing from provider node ${prov.name}. Non-drop active standard catalog integration.`,
+            description: fetchedSvc.description || `Imported via standard reseller API syncing from provider catalog ${prov.name}. Non-drop high performance node connection.`,
             refill: fetchedSvc.refill === true || String(fetchedSvc.refill).toLowerCase() === 'true',
             cancel: fetchedSvc.cancel === true || String(fetchedSvc.cancel).toLowerCase() === 'true',
             providerId: prov.id,
-            originalServiceId: extId
+            originalServiceId: extId,
+            providerPrice,
+            customerPrice,
+            profitAmount
           });
           matchedLocalServiceIds.push(newSvc.id);
           totalAdded++;
@@ -1611,7 +1671,7 @@ app.get('/api/admin/settings', authenticateToken, requireAdmin, (req, res) => {
 
 app.patch('/api/admin/settings', authenticateToken, requireAdmin, (req: AuthenticatedRequest, res) => {
   try {
-    const { panelName, currency, maintenanceMode, minDeposit, maxDeposit, autoSyncServices, autoSyncIntervalHours } = req.body;
+    const { panelName, currency, maintenanceMode, minDeposit, maxDeposit, autoSyncServices, autoSyncIntervalHours, markupPercent, markupFixed } = req.body;
     const updated = db.updateSettings({
       panelName,
       currency,
@@ -1619,14 +1679,19 @@ app.patch('/api/admin/settings', authenticateToken, requireAdmin, (req: Authenti
       minDeposit: minDeposit !== undefined ? parseFloat(minDeposit) : undefined,
       maxDeposit: maxDeposit !== undefined ? parseFloat(maxDeposit) : undefined,
       autoSyncServices: autoSyncServices !== undefined ? !!autoSyncServices : undefined,
-      autoSyncIntervalHours: autoSyncIntervalHours !== undefined ? parseInt(autoSyncIntervalHours, 10) : undefined
+      autoSyncIntervalHours: autoSyncIntervalHours !== undefined ? parseInt(autoSyncIntervalHours, 10) : undefined,
+      markupPercent: markupPercent !== undefined ? parseFloat(markupPercent) : undefined,
+      markupFixed: markupFixed !== undefined ? parseFloat(markupFixed) : undefined
     });
+
+    // Run custom pricing updates immediately
+    applyMarkupToServices(updated);
 
     db.createAuditLog({
       userId: req.user!.id,
       username: req.user!.username,
       action: 'UPDATE_PANEL_SETTINGS',
-      details: `Updated core global panel properties to Name: "${updated.panelName}"`
+      details: `Updated core global panel properties to Name: "${updated.panelName}". Percentage Markup: ${updated.markupPercent || 0}%, Fixed Markup: $${updated.markupFixed || 0}`
     });
 
     res.json(updated);
@@ -1734,6 +1799,16 @@ async function startServer() {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`[MK SMM Panel Server] running on http://localhost:${PORT}`);
     
+    // Check if services list is currently empty after letting Firestore sync settle, and trigger catalog preload automatically
+    setTimeout(() => {
+      if (db.getServices().length === 0) {
+        console.log('[Sync System] Detected empty service database catalog. Preloading SMMCTRL reseller service catalogs on boot...');
+        syncProviderServices(undefined, true)
+          .then(res => console.log(`[Sync System] Preboot SMM catalog synced. Success: ${res.success}. Grouped services active: ${res.added + res.updated}`))
+          .catch(err => console.error('[Sync System] Preboot SMM catalog sync failed:', err.message));
+      }
+    }, 3000);
+
     // Start Services Auto Sync Scheduler (checks every 6 hours)
     const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
     setInterval(async () => {
