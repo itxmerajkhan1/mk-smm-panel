@@ -83,7 +83,8 @@ export default function AdminDashboard({ token, currentUser, onRefreshUser }: Ad
   const [adminNotesInput, setAdminNotesInput] = useState<Record<string, string>>({});
 
   // Sync everything
-  const fetchAllData = async () => {
+  const fetchAllData = React.useCallback(async () => {
+    if (loading) return;
     setLoading(true);
     setFeedback({ msg: '', type: 'success' });
     const headers = { Authorization: `Bearer ${token}` };
@@ -108,7 +109,6 @@ export default function AdminDashboard({ token, currentUser, onRefreshUser }: Ad
       ]);
 
       if (statsData) setStats(statsData);
-      if (usersData) setUsers(users);
       if (usersData && Array.isArray(usersData)) setUsers(usersData);
       if (ordersData && Array.isArray(ordersData)) setOrders(ordersData);
       if (svcsData && Array.isArray(svcsData)) setServices(svcsData);
@@ -138,11 +138,13 @@ export default function AdminDashboard({ token, currentUser, onRefreshUser }: Ad
     } finally {
       setLoading(false);
     }
-  };
+  }, [token, loading]);
 
   useEffect(() => {
-    fetchAllData();
-  }, [token]);
+    if (token) {
+      fetchAllData();
+    }
+  }, [fetchAllData]);
 
   const triggerFeedback = (msg: string, type: 'success' | 'error' | 'all' = 'success') => {
     setFeedback({ msg, type });

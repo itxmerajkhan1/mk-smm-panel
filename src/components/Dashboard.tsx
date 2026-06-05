@@ -18,6 +18,7 @@ import { storage } from '../firebase';
 import DashboardCharts from './DashboardCharts';
 import MassOrder from './MassOrder';
 import ChildPanel from './ChildPanel';
+import ActivityLogs from './ActivityLogs';
 import { formatCurrency, convertCurrency, EXCHANGE_RATES, CURRENCY_SYMBOLS } from '../utils/currency';
 
 interface DashboardProps {
@@ -158,20 +159,25 @@ export default function Dashboard({
   // Refill / Cancel states inside Order lists
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
+  // Loading states
+  const [dataLoading, setDataLoading] = useState(true);
+  const [dataError, setDataError] = useState<string | null>(null);
+
   // Load services list
   const fetchServices = async (forceRefetch = false) => {
     if (services.length > 0 && !forceRefetch) return;
-    if (loadingServices) return;
     setLoadingServices(true);
     try {
       const res = await fetch('/api/services');
+      if (!res.ok) throw new Error('Failed to fetch services');
       const data = await res.json();
       if (Array.isArray(data)) {
         const activeServices = data.filter(s => s.active);
         setServices(activeServices);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      if (dataLoading) setDataError(e.message);
     } finally {
       setLoadingServices(false);
     }
@@ -184,11 +190,12 @@ export default function Dashboard({
       const res = await fetch('/api/orders', {
         headers: { Authorization: `Bearer ${token}` }
       });
+      if (!res.ok) throw new Error('Failed to fetch orders');
       const data = await res.json();
       if (Array.isArray(data)) {
         setOrders(data);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
     } finally {
       setLoadingOrders(false);
@@ -202,11 +209,12 @@ export default function Dashboard({
       const res = await fetch('/api/tickets', {
         headers: { Authorization: `Bearer ${token}` }
       });
+      if (!res.ok) throw new Error('Failed to fetch tickets');
       const data = await res.json();
       if (Array.isArray(data)) {
         setTickets(data);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
     } finally {
       setLoadingTickets(false);
@@ -219,11 +227,12 @@ export default function Dashboard({
       const res = await fetch('/api/transactions', {
         headers: { Authorization: `Bearer ${token}` }
       });
+      if (!res.ok) throw new Error('Failed to fetch transactions');
       const data = await res.json();
       if (Array.isArray(data)) {
         setTransactions(data);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
     }
   };
@@ -241,7 +250,7 @@ export default function Dashboard({
         setReferredUsers(data.referredUsers || []);
         setCommissionLogs(data.commissionLogs || []);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
     } finally {
       setLoadingReferrals(false);
@@ -249,20 +258,39 @@ export default function Dashboard({
   };
 
   // Refresh all state context
-  const refreshAllState = (forceRefetch = false) => {
-    fetchServices(forceRefetch);
-    fetchOrders();
-    fetchTickets();
-    fetchTransactions();
-    fetchReferralStats();
-    onRefreshUser();
-    
-    // Clear residual Alerts
-    setOrderError('');
-    setOrderSuccess('');
-    setDepositSuccess('');
-    setTicketSuccess('');
+  const refreshAllState = async (forceRefetch = false) => {
+    setDataLoading(true);
+    setDataError(null);
+    try {
+        await Promise.all([
+            fetchServices(forceRefetch),
+            fetchOrders(),
+            fetchTickets(),
+            fetchTransactions(),
+            fetchReferralStats(),
+            new Promise<void>(resolve => { onRefreshUser(); resolve(); })
+        ]);
+        
+        // Clear residual Alerts
+        setOrderError('');
+        setOrderSuccess('');
+        setDepositSuccess('');
+        setTicketSuccess('');
+    } catch (e: any) {
+        setDataError(e.message || 'Failed to initialize dashboard data');
+    } finally {
+        setDataLoading(false);
+    }
   };
+
+  // On mount / active-tab changes
+  useEffect(() => {
+    if (token) {
+      refreshAllState(false);
+    } else {
+        setDataLoading(false);
+    }
+  }, [token]);
 
   // Auto-select valid category from extracted list if the currently selected one is not valid
   useEffect(() => {
@@ -997,26 +1025,28 @@ export default function Dashboard({
                   <label className="block text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
                     SMM Category Group
                   </label>
-                  <select
-                    id="order-category-select"
-                    value={selectedCategory}
-                    disabled={loadingServices}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setSelectedCategory(val);
-                    }}
-                    className="mt-1.5 w-full rounded-lg border border-zinc-850 bg-black px-3.5 py-3 text-sm text-white outline-none focus:border-blue-550 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {loadingServices ? (
-                      <option>Loading SMM Database Catalogs...</option>
-                    ) : categories.length === 0 ? (
-                      <option>No Categories Available</option>
-                    ) : (
-                      categories.map(cat => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))
-                    )}
-                  </select>
+                  {dataLoading ? (
+                    <div className="mt-1.5 w-full rounded-lg border border-zinc-900 bg-zinc-900/50 animate-pulse h-[45px]" />
+                  ) : (
+                    <select
+                      id="order-category-select"
+                      value={selectedCategory}
+                      disabled={loadingServices}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSelectedCategory(val);
+                      }}
+                      className="mt-1.5 w-full rounded-lg border border-zinc-850 bg-black px-3.5 py-3 text-sm text-white outline-none focus:border-blue-550 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {categories.length === 0 ? (
+                        <option>No Categories Available</option>
+                      ) : (
+                        categories.map(cat => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))
+                      )}
+                    </select>
+                  )}
                 </div>
 
                 {/* Service Selection */}
@@ -1024,28 +1054,30 @@ export default function Dashboard({
                   <label className="block text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
                     Target Acceleration Node
                   </label>
-                  <select
-                    id="order-service-select"
-                    value={selectedServiceId}
-                    disabled={loadingServices || filteredServices.length === 0}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setSelectedServiceId(val);
-                    }}
-                    className="mt-1.5 w-full rounded-lg border border-zinc-850 bg-black px-3.5 py-3 text-sm text-white outline-none focus:border-blue-550 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {loadingServices ? (
-                      <option>Loading acceleration nodes...</option>
-                    ) : filteredServices.length === 0 ? (
-                      <option>No Services Available Under Category</option>
-                    ) : (
-                      filteredServices.map(svc => (
-                        <option key={svc.id} value={svc.id}>
-                          {svc.name} — {formatCurrency(convertCurrency(svc.rate, 'USD', currency), currency)} / 1000 items
-                        </option>
-                      ))
-                    )}
-                  </select>
+                  {dataLoading ? (
+                    <div className="mt-1.5 w-full rounded-lg border border-zinc-900 bg-zinc-900/50 animate-pulse h-[45px]" />
+                  ) : (
+                    <select
+                      id="order-service-select"
+                      value={selectedServiceId}
+                      disabled={loadingServices || filteredServices.length === 0}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSelectedServiceId(val);
+                      }}
+                      className="mt-1.5 w-full rounded-lg border border-zinc-850 bg-black px-3.5 py-3 text-sm text-white outline-none focus:border-blue-550 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {filteredServices.length === 0 ? (
+                        <option>No Services Available Under Category</option>
+                      ) : (
+                        filteredServices.map(svc => (
+                          <option key={svc.id} value={svc.id}>
+                            {svc.name} — {formatCurrency(convertCurrency(svc.rate, 'USD', currency), currency)} / 1000 items
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  )}
                 </div>
 
                 {/* Speed Details Display */}
@@ -2506,6 +2538,11 @@ export default function Dashboard({
 
           </div>
         </div>
+      )}
+
+      {/* ================= ACTIVITY LOGS ================= */}
+      {activeTab === 'activity-logs' && (
+        <ActivityLogs />
       )}
 
       {/* ================= SMM AFFILIATES & REFERRED USERS COCKPIT ================= */}

@@ -38,6 +38,7 @@ export default function Navbar({
     { id: 'support', label: 'Support Tickets' },
     { id: 'api', label: 'API Reference' },
     { id: 'profile', label: 'Profile' },
+    { id: 'activity-logs', label: 'Activity Logs' },
     { id: 'referrals', label: '🎁 Affiliates & Referrals' }
   ];
 
