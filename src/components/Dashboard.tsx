@@ -5,7 +5,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, Service, Order, Ticket, Transaction, Notification } from '../types';
-import { useAuthContext } from './AuthContext';
+import { useAuthContext, handleFirestoreError, OperationType } from './AuthContext';
+import { db } from '../firebase';
+import { collection, query, where, getDocs, addDoc, serverTimestamp, orderBy } from 'firebase/firestore';
 import { 
   ShoppingBag, Layers, Wallet, Code, HelpCircle, 
   Send, Plus, Clock, CheckCircle2, AlertCircle, RefreshCw,
@@ -168,16 +170,12 @@ export default function Dashboard({
     if (services.length > 0 && !forceRefetch) return;
     setLoadingServices(true);
     try {
-      const res = await fetch('/api/services');
-      if (!res.ok) throw new Error('Failed to fetch services');
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        const activeServices = data.filter(s => s.active);
-        setServices(activeServices);
-      }
+      const q = query(collection(db, 'services'), where('active', '==', true));
+      const snap = await getDocs(q);
+      const data = snap.docs.map(d => ({id: d.id, ...d.data()} as Service));
+      setServices(data);
     } catch (e: any) {
-      console.error(e);
-      if (dataLoading) setDataError(e.message);
+      handleFirestoreError(e, OperationType.LIST, 'services');
     } finally {
       setLoadingServices(false);
     }
@@ -187,16 +185,13 @@ export default function Dashboard({
   const fetchOrders = async () => {
     setLoadingOrders(true);
     try {
-      const res = await fetch('/api/orders', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (!res.ok) throw new Error('Failed to fetch orders');
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setOrders(data);
-      }
+      if (!user) return;
+      const q = query(collection(db, 'orders'), where('userId', '==', user.id), orderBy('createdAt', 'desc'));
+      const snap = await getDocs(q);
+      const data = snap.docs.map(d => ({id: d.id, ...d.data()} as Order));
+      setOrders(data);
     } catch (e: any) {
-      console.error(e);
+      handleFirestoreError(e, OperationType.LIST, 'orders');
     } finally {
       setLoadingOrders(false);
     }
@@ -206,16 +201,13 @@ export default function Dashboard({
   const fetchTickets = async () => {
     setLoadingTickets(true);
     try {
-      const res = await fetch('/api/tickets', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (!res.ok) throw new Error('Failed to fetch tickets');
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setTickets(data);
-      }
+      if (!user) return;
+      const q = query(collection(db, 'tickets'), where('userId', '==', user.id), orderBy('createdAt', 'desc'));
+      const snap = await getDocs(q);
+      const data = snap.docs.map(d => ({id: d.id, ...d.data()} as Ticket));
+      setTickets(data);
     } catch (e: any) {
-      console.error(e);
+      handleFirestoreError(e, OperationType.LIST, 'tickets');
     } finally {
       setLoadingTickets(false);
     }
@@ -224,16 +216,13 @@ export default function Dashboard({
   // Load Transactions & history
   const fetchTransactions = async () => {
     try {
-      const res = await fetch('/api/transactions', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (!res.ok) throw new Error('Failed to fetch transactions');
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setTransactions(data);
-      }
+      if (!user) return;
+      const q = query(collection(db, 'transactions'), where('userId', '==', user.id), orderBy('createdAt', 'desc'));
+      const snap = await getDocs(q);
+      const data = snap.docs.map(d => ({id: d.id, ...d.data()} as Transaction));
+      setTransactions(data);
     } catch (e: any) {
-      console.error(e);
+      handleFirestoreError(e, OperationType.LIST, 'transactions');
     }
   };
 
