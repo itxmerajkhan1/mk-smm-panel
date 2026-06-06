@@ -61,7 +61,7 @@ export default function Footer() {
           {/* Legal */}
           <div className="space-y-4">
             <h3 className="font-semibold text-white">Legal & Policies</h3>
-            <ul className="space-y-2 text-sm courser-pointer">
+            <ul className="space-y-2 text-sm">
               <li><button onClick={() => setActivePolicy('privacy')} className="hover:text-blue-400 transition-colors w-full text-left">Privacy Policy</button></li>
               <li><button onClick={() => setActivePolicy('refund')} className="hover:text-blue-400 transition-colors w-full text-left">Refund & Return Policy</button></li>
               <li><button onClick={() => setActivePolicy('shipping')} className="hover:text-blue-400 transition-colors w-full text-left">Shipping & Service Policy</button></li>
