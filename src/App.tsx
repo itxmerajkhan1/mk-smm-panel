@@ -7,6 +7,7 @@ import Auth from './components/Auth';
 import AdminLogin from './components/AdminLogin';
 import Dashboard from './components/Dashboard';
 import AdminDashboard from './components/AdminDashboard';
+import Footer from './components/Footer';
 import CurrencyDropdown from './components/CurrencyDropdown';
 import { useAuthContext } from './components/AuthContext';
 import { 
@@ -401,11 +402,8 @@ export default function App() {
 
             </main>
 
-            {/* Minimal footer line */}
-            <footer className="h-12 border-t border-zinc-900/60 bg-black/20 flex items-center justify-between px-6 text-[10px] text-zinc-650 font-mono select-none">
-              <span>&copy; {new Date().getFullYear()} MK SMM Enterprise. Standard integration mode.</span>
-              <span className="hidden sm:inline">Active Nodes synced via Firestore socket logs</span>
-            </footer>
+            {/* ================= COMPREHENSIVE FOOTER ================= */}
+            <Footer />
 
           </div>
 
