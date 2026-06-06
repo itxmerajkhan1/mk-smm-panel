@@ -178,7 +178,7 @@ export default function DashboardCharts({
             </div>
           </div>
 
-          <div className="h-64 sm:h-72 w-full font-mono text-[10px]">
+          <div className="h-64 sm:h-72 min-h-[256px] w-full font-mono text-[10px]">
             <ResponsiveContainer width="100%" height="100%">
               {chartType === 'revenue' ? (
                 <AreaChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
@@ -236,7 +236,7 @@ export default function DashboardCharts({
               Distribution of SMM task triggers by structural node family networks in total client orders.
             </p>
 
-            <div className="h-44 w-full flex items-center justify-center relative font-mono text-[9px]">
+            <div className="h-44 min-h-[176px] w-full flex items-center justify-center relative font-mono text-[9px]">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie

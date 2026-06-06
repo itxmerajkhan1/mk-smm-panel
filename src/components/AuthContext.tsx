@@ -167,41 +167,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 }
 
                 if (referrerUid && referrerUid !== currentUser.uid && !profileData.referredBy) {
-                  const syncResp = await fetch('/api/auth/sync', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ referredBy: referrerUid })
+                  // Save referredBy on client-side Firestore document
+                  await setDoc(userDocRef, {
+                    referredBy: referrerUid
+                  }, { merge: true });
+
+                  // Add Notification to Referrer
+                  await addDoc(collection(db, 'notifications'), {
+                    userId: referrerUid,
+                    title: '🔥 New Referral Registered!',
+                    message: `@${profileData.username || 'A user'} registered using your referral link. You will earn 10% commission on their funding deposits!`,
+                    read: false,
+                    createdAt: new Date().toISOString()
                   });
-                  if (syncResp.ok) {
-                    // Save referredBy on client-side Firestore document
-                    await setDoc(userDocRef, {
-                      referredBy: referrerUid
-                    }, { merge: true });
 
-                    // Add Notification to Referrer
-                    await addDoc(collection(db, 'notifications'), {
-                      userId: referrerUid,
-                      title: '🔥 New Referral Registered!',
-                      message: `@${profileData.username || 'A user'} registered using your referral link. You will earn 10% commission on their funding deposits!`,
-                      read: false,
-                      createdAt: new Date().toISOString()
-                    });
-
-                    localStorage.removeItem('mk_smm_referrer');
-                  }
+                  localStorage.removeItem('mk_smm_referrer');
                 } else {
-                  // Standard heartbeat sync to make sure user exists on SMM backend mock DB
-                  await fetch('/api/auth/sync', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({})
-                  });
+                  // heartbeat sync removed
+
                   if (profileData.referredBy || (savedRef && savedRef.toLowerCase().trim() === profileData.username.toLowerCase())) {
                     localStorage.removeItem('mk_smm_referrer');
                   }
