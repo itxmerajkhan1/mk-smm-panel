@@ -229,18 +229,18 @@ export default function Dashboard({
   const fetchReferralStats = async () => {
     setLoadingReferrals(true);
     try {
-      const res = await fetch('/api/referrals/stats', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (res.ok) {
+      if (!user) return;
+      const q = query(collection(db, 'referrals'), where('userId', '==', user.id));
+      const snap = await getDocs(q);
+      const data = snap.docs[0]?.data();
+      if (data) {
         setReferralsCount(data.referralCount || 0);
         setReferralEarnings(data.totalEarnings || 0);
         setReferredUsers(data.referredUsers || []);
         setCommissionLogs(data.commissionLogs || []);
       }
     } catch (e: any) {
-      console.error(e);
+      handleFirestoreError(e, OperationType.LIST, 'referrals');
     } finally {
       setLoadingReferrals(false);
     }
