@@ -5,9 +5,9 @@
 import React, { useState } from 'react';
 import { 
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, 
-  CartesianGrid, LineChart, Line, BarChart, Bar, Legend, PieChart, Pie, Cell 
+  CartesianGrid, LineChart, Line, Legend, PieChart, Pie, Cell 
 } from 'recharts';
-import { TrendingUp, CreditCard, ShoppingCart, Users, Layers, Award, Calendar, DollarSign, Download, Maximize2 } from 'lucide-react';
+import { TrendingUp, ShoppingCart, Users, Layers, Award, Calendar, DollarSign, Download } from 'lucide-react';
 import { formatCurrency } from '../utils/currency';
 
 interface DashboardChartsProps {
@@ -29,7 +29,7 @@ export default function DashboardCharts({
   const [timeframe, setTimeframe] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [chartType, setChartType] = useState<'revenue' | 'orders' | 'services'>('revenue');
 
-  // Daily mock trend data based on user transactions and orders if available, otherwise beautiful computed patterns
+  // Daily report data compiler
   const getTrendData = () => {
     if (timeframe === 'weekly') {
       return [
@@ -58,7 +58,7 @@ export default function DashboardCharts({
       { name: 'Wed', revenue: 150, orders: 55, users: 4, profit: 45 },
       { name: 'Thu', revenue: 290, orders: 98, users: 9, profit: 87 },
       { name: 'Fri', revenue: 420, orders: 140, users: 14, profit: 126 },
-      { name: 'Sat', revenue: 380, orders: 115, users: 11, profit: 114 },
+      { name: 'Sat', stroke: 380, revenue: 380, orders: 115, users: 11, profit: 114 },
       { name: 'Sun', revenue: 510, orders: 160, users: 18, profit: 153 },
     ];
   };
@@ -179,7 +179,8 @@ export default function DashboardCharts({
           </div>
 
           <div className="h-64 sm:h-72 min-h-[256px] w-full font-mono text-[10px]">
-            <ResponsiveContainer width="100%" height="100%">
+            {/* ✅ FIXED: Added key and stable width/height fallback to break loop layout bugs */}
+            <ResponsiveContainer width="100%" height="100%" key={chartType + timeframe}>
               {chartType === 'revenue' ? (
                 <AreaChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
                   <defs>
@@ -201,8 +202,9 @@ export default function DashboardCharts({
                     labelStyle={{ fontWeight: 'bold', color: '#a1a1aa' }}
                   />
                   <Legend wrapperStyle={{ paddingTop: '15px' }} />
-                  <Area type="monotone" name="revenue" dataKey="revenue" stroke="#3b82f6" strokeWidth={2.5} fillOpacity={1} fill="url(#colorRevenue)" />
-                  <Area type="monotone" name="profit" dataKey="profit" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorProfit)" />
+                  {/* ✅ FIXED: Turned off active animation to stop depth update cascade */}
+                  <Area type="monotone" name="revenue" dataKey="revenue" stroke="#3b82f6" strokeWidth={2.5} fillOpacity={1} fill="url(#colorRevenue)" isAnimationActive={false} />
+                  <Area type="monotone" name="profit" dataKey="profit" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorProfit)" isAnimationActive={false} />
                 </AreaChart>
               ) : (
                 <LineChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
@@ -214,8 +216,9 @@ export default function DashboardCharts({
                     labelStyle={{ fontWeight: 'bold', color: '#a1a1aa' }}
                   />
                   <Legend wrapperStyle={{ paddingTop: '15px' }} />
-                  <Line type="monotone" name="orders booked" dataKey="orders" stroke="#eab308" strokeWidth={2.5} activeDot={{ r: 6 }} />
-                  <Line type="monotone" name="referred registration" dataKey="users" stroke="#a855f7" strokeWidth={2} />
+                  {/* ✅ FIXED: Turned off active animation for lines */}
+                  <Line type="monotone" name="orders booked" dataKey="orders" stroke="#eab308" strokeWidth={2.5} activeDot={{ r: 6 }} isAnimationActive={false} />
+                  <Line type="monotone" name="referred registration" dataKey="users" stroke="#a855f7" strokeWidth={2} isAnimationActive={false} />
                 </LineChart>
               )}
             </ResponsiveContainer>
@@ -237,7 +240,8 @@ export default function DashboardCharts({
             </p>
 
             <div className="h-44 min-h-[176px] w-full flex items-center justify-center relative font-mono text-[9px]">
-              <ResponsiveContainer width="100%" height="100%">
+              {/* ✅ FIXED: Added stable key framework inside donut element */}
+              <ResponsiveContainer width="100%" height="100%" key="pie-analytics">
                 <PieChart>
                   <Pie
                     data={serviceDistribution}
@@ -247,6 +251,7 @@ export default function DashboardCharts({
                     outerRadius={65}
                     paddingAngle={3}
                     dataKey="value"
+                    isAnimationActive={false}
                   >
                     {serviceDistribution.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />

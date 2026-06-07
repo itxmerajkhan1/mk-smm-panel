@@ -100,6 +100,7 @@ export default function App() {
   }, []);
 
   const navigate = (path: string) => {
+    if (currentPath === path) return;
     window.history.pushState(null, '', path);
     setCurrentPath(path);
   };

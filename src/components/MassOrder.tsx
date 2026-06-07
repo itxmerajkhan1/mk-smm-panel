@@ -251,7 +251,8 @@ export default function MassOrder({
                     <div className="flex-1 space-y-1">
                       <div className="truncate text-zinc-400 text-[9px]">Raw feed: <code className="text-white bg-black/40 px-1 py-0.5 rounded">{r.raw}</code></div>
                       <div className="font-semibold text-zinc-300">{r.message}</div>
-                      {r.orderId && <div className="text-[8.5px] text-emerald-500 uppercase font-black">Logged ID: {r.id || r.orderId}</div>}
+                      {/* ✅ FIX: Removed 'r.id ||' to avoid breaking render loop */}
+                      {r.orderId && <div className="text-[8.5px] text-emerald-500 uppercase font-black">Logged ID: {r.orderId}</div>}
                     </div>
                   </div>
                 ))}

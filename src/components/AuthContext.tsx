@@ -348,7 +348,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const refreshProfile = async () => {
+  const refreshProfile = React.useCallback(async () => {
     if (!auth.currentUser) return;
     try {
       const profileSnap = await getDoc(doc(db, 'users', auth.currentUser.uid));
@@ -358,7 +358,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       handleFirestoreError(e, OperationType.GET, `users/${auth.currentUser.uid}`);
     }
-  };
+  }, [auth.currentUser?.uid]);
 
   const updateUserApiKey = async () => {
     if (!auth.currentUser || !userProfile) throw new Error('Not authenticated');

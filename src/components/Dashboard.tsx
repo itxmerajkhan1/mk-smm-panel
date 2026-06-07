@@ -273,36 +273,38 @@ export default function Dashboard({
   }, [user, token, onRefreshUser]); // Added necessary dependencies
 
   // On mount / active-tab changes
+ // ==========================================
+  // ✅ FIXED: COMBINED AND STABILIZED EFFECT HOOKS TO PREVENT INFINITE LOOPS
+  // ==========================================
+  
+  // On mount / token changes - Only run once when token is verified
   useEffect(() => {
     if (token) {
       refreshAllState(false);
     } else {
-        setDataLoading(false);
+      setDataLoading(false);
     }
-  }, [token, refreshAllState]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]); 
 
-  // Auto-select valid category from extracted list if the currently selected one is not valid
+  // Load referral stats only when active tab changes to referrals
   useEffect(() => {
-    if (categories.length > 0) {
-      if (!selectedCategory || !categories.includes(selectedCategory)) {
-        setSelectedCategory(categories[0]);
-      }
-    } else {
-      setSelectedCategory('');
+    if (token && activeTab === 'referrals') {
+      fetchReferralStats();
     }
-  }, [categories, selectedCategory]);
-
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, activeTab]);
   // Auto-select valid service from category if choice is not valid
   useEffect(() => {
     if (filteredServices.length > 0) {
       const isCurrentValid = filteredServices.some(s => s.id === selectedServiceId);
-      if (!isCurrentValid) {
+      if (!isCurrentValid || !selectedServiceId) {
         setSelectedServiceId(filteredServices[0].id);
       }
-    } else {
+    } else if (selectedServiceId) {
       setSelectedServiceId('');
     }
-  }, [filteredServices, selectedServiceId]);
+  }, [filteredServices]); // Only depend on filteredServices
 
   // Handle outside balance trigger
   useEffect(() => {
