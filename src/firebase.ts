@@ -4,18 +4,29 @@
  */
 
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
-import firebaseConfig from '../firebase-applet-config.json';
 
+// Aapki asli keys jo aapne nikaali thin
+const firebaseConfig = {
+  apiKey: "AIzaSyBCcgdsOIn3EBH6yPvRsRTh2EPLKa8G5hI",
+  authDomain: "mk-smm-panal.firebaseapp.com",
+  databaseURL: "https://mk-smm-panal-default-rtdb.firebaseio.com",
+  projectId: "mk-smm-panal",
+  storageBucket: "mk-smm-panal.firebasestorage.app",
+  messagingSenderId: "756666155930",
+  appId: "1:756666155930:web:412ad3365bf75602a6f023"
+};
+
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// CRITICAL: Ensure we supply the firestoreDatabaseId from the loaded config
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+// 🔥 HARDCODED FIX: Yeh line default database ko bypass karke direct AI Studio wale database se connect karegi
+export const db = getFirestore(app, "ai-studio-a1cbaf53-22bd-4d29-9d9a-e58e4203d4ff");
+
 export const auth = getAuth(app);
 export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
 
-// Export Firebase methods
-export { signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut };
+export { signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword };

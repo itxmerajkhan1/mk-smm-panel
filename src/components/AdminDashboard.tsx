@@ -7,6 +7,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   User, Service, Order, Ticket, AdminStats, Category, Provider, AuditLog, PanelSettings, Transaction 
 } from '../types';
+import { db } from '../firebase';
+import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
 import { 
   Users, DollarSign, Layers, Ticket as TicketIcon, RefreshCw, 
   Send, Plus, Trash2, Edit3, ShieldAlert, CheckCircle2, AlertCircle, ShoppingBag,
@@ -87,35 +89,34 @@ export default function AdminDashboard({ token, currentUser, onRefreshUser }: Ad
     if (loading) return;
     setLoading(true);
     setFeedback({ msg: '', type: 'success' });
-    const headers = { Authorization: `Bearer ${token}` };
     try {
-      const getJSON = async (url: string) => {
-        const r = await fetch(url, { headers });
-        return r.ok ? r.json() : null;
-      };
-
-      const [statsData, usersData, ordersData, svcsData, ticketsData, catsData, provsData, settingsData, logsData, txsData, analyticsData] = await Promise.all([
-        getJSON('/api/admin/stats'),
-        getJSON('/api/admin/users'),
-        getJSON('/api/orders'),
-        getJSON('/api/services'),
-        getJSON('/api/tickets'),
-        getJSON('/api/admin/categories'),
-        getJSON('/api/admin/providers'),
-        getJSON('/api/admin/settings'),
-        getJSON('/api/admin/audit-logs'),
-        getJSON('/api/transactions'),
-        getJSON('/api/admin/analytics')
+      // Execute all queries in parallel
+      const [
+        usersSnap, ordersSnap, svcsSnap, ticketsSnap, 
+        catsSnap, provsSnap, settingsSnap, logsSnap, txsSnap
+      ] = await Promise.all([
+        getDocs(collection(db, 'users')),
+        getDocs(query(collection(db, 'orders'), orderBy('createdAt', 'desc'))),
+        getDocs(collection(db, 'services')),
+        getDocs(query(collection(db, 'tickets'), orderBy('createdAt', 'desc'))),
+        getDocs(query(collection(db, 'categories'))),
+        getDocs(collection(db, 'providers')),
+        getDocs(collection(db, 'settings')),
+        getDocs(query(collection(db, 'logs'), orderBy('createdAt', 'desc'))),
+        getDocs(query(collection(db, 'transactions'), orderBy('createdAt', 'desc')))
       ]);
 
-      if (statsData) setStats(statsData);
-      if (usersData && Array.isArray(usersData)) setUsers(usersData);
-      if (ordersData && Array.isArray(ordersData)) setOrders(ordersData);
-      if (svcsData && Array.isArray(svcsData)) setServices(svcsData);
-      if (ticketsData && Array.isArray(ticketsData)) setTickets(ticketsData);
-      if (catsData && Array.isArray(catsData)) setCategories(catsData);
-      if (provsData && Array.isArray(provsData)) setProviders(provsData);
-      if (settingsData) {
+      setUsers(usersSnap.docs.map(d => ({id: d.id, ...d.data()}) as User));
+      setOrders(ordersSnap.docs.map(d => ({id: d.id, ...d.data()}) as Order));
+      setServices(svcsSnap.docs.map(d => ({id: d.id, ...d.data()}) as Service));
+      setTickets(ticketsSnap.docs.map(d => ({id: d.id, ...d.data()}) as Ticket));
+      setCategories(catsSnap.docs.map(d => ({id: d.id, ...d.data()}) as Category));
+      setProviders(provsSnap.docs.map(d => ({id: d.id, ...d.data()}) as Provider));
+      setAuditLogs(logsSnap.docs.map(d => ({id: d.id, ...d.data()}) as AuditLog));
+      setTransactions(txsSnap.docs.map(d => ({id: d.id, ...d.data()}) as Transaction));
+
+      if (settingsSnap.docs.length > 0) {
+        const settingsData = { ...settingsSnap.docs[0].data() } as PanelSettings;
         setSettings(settingsData);
         setSettingsForm({
           panelName: settingsData.panelName,
@@ -129,16 +130,23 @@ export default function AdminDashboard({ token, currentUser, onRefreshUser }: Ad
           markupFixed: settingsData.markupFixed || 0
         });
       }
-      if (logsData && Array.isArray(logsData)) setAuditLogs(logsData);
-      if (txsData && Array.isArray(txsData)) setTransactions(txsData);
-      if (analyticsData) setAnalytics(analyticsData);
+
+      // Calculate stats based on loaded data
+      setStats({
+        totalUsers: usersSnap.docs.length,
+        activeUsers: usersSnap.docs.filter(d => (d.data() as User).status === 'active').length,
+        totalOrders: ordersSnap.docs.length,
+        pendingOrders: ordersSnap.docs.filter(o => (o.data() as Order).status === 'pending').length,
+        totalProfit: ordersSnap.docs.reduce((acc, o) => acc + ( (o.data() as Order).charge || 0) * 0.35, 0),
+        openTickets: ticketsSnap.docs.filter(t => (t.data() as Ticket).status === 'open').length,
+      });
     } catch (err) {
       console.error(err);
-      triggerFeedback('Could not fetch synchronized admin logs and tables data.', 'all');
+      triggerFeedback('Could not fetch synchronized data.', 'all');
     } finally {
       setLoading(false);
     }
-  }, [token, loading]);
+  }, [loading]);
 
   useEffect(() => {
     if (token) {
