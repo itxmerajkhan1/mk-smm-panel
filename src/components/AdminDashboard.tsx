@@ -8,7 +8,7 @@ import {
   User, Service, Order, Ticket, AdminStats, Category, Provider, AuditLog, PanelSettings, Transaction 
 } from '../types';
 import { db } from '../firebase';
-import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, limit, doc, updateDoc } from 'firebase/firestore';
 import { 
   Users, DollarSign, Layers, Ticket as TicketIcon, RefreshCw, 
   Send, Plus, Trash2, Edit3, ShieldAlert, CheckCircle2, AlertCircle, ShoppingBag,
@@ -85,8 +85,10 @@ export default function AdminDashboard({ token, currentUser, onRefreshUser }: Ad
   const [adminNotesInput, setAdminNotesInput] = useState<Record<string, string>>({});
 
   // Sync everything
+  const isLoading = React.useRef(false);
   const fetchAllData = React.useCallback(async () => {
-    if (loading) return;
+    if (isLoading.current) return;
+    isLoading.current = true;
     setLoading(true);
     setFeedback({ msg: '', type: 'success' });
     try {
@@ -145,8 +147,9 @@ export default function AdminDashboard({ token, currentUser, onRefreshUser }: Ad
       triggerFeedback('Could not fetch synchronized data.', 'all');
     } finally {
       setLoading(false);
+      isLoading.current = false;
     }
-  }, [loading]);
+  }, []); // Stable dependency array
 
   useEffect(() => {
     if (token) {
@@ -196,35 +199,25 @@ export default function AdminDashboard({ token, currentUser, onRefreshUser }: Ad
     const balance = parseFloat(balanceInput);
     if (isNaN(balance) || balance < 0) return triggerFeedback('Enter a valid numeric balance limit ($)', 'error');
     try {
-      const resp = await fetch(`/api/admin/users/${userId}/balance`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ balance })
-      });
-      if (resp.ok) {
-        triggerFeedback('Consumer wallet balance set successfully');
-        setSelectedUserId(null);
-        setBalanceInput('');
-        fetchAllData();
-        onRefreshUser();
-      }
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, { balance });
+      triggerFeedback('Consumer wallet balance set successfully');
+      setSelectedUserId(null);
+      setBalanceInput('');
+      await fetchAllData();
+      onRefreshUser();
     } catch {
-      triggerFeedback('Connection failed', 'error');
+      triggerFeedback('Firestore update failed', 'error');
     }
   };
 
   const handleToggleSuspension = async (userId: string, currentStatus: string) => {
     const status = currentStatus === 'active' ? 'suspended' : 'active';
     try {
-      const resp = await fetch(`/api/admin/users/${userId}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ status })
-      });
-      if (resp.ok) {
-        triggerFeedback(`User account status modified to [${status}] successfully`);
-        fetchAllData();
-      }
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, { status });
+      triggerFeedback(`User account status modified to [${status}] successfully`);
+      await fetchAllData();
     } catch {
       triggerFeedback('Change status failed', 'error');
     }

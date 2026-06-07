@@ -247,7 +247,7 @@ export default function Dashboard({
   };
 
   // Refresh all state context
-  const refreshAllState = async (forceRefetch = false) => {
+  const refreshAllState = React.useCallback(async (forceRefetch = false) => {
     setDataLoading(true);
     setDataError(null);
     try {
@@ -270,7 +270,7 @@ export default function Dashboard({
     } finally {
         setDataLoading(false);
     }
-  };
+  }, [user, token, onRefreshUser]); // Added necessary dependencies
 
   // On mount / active-tab changes
   useEffect(() => {
@@ -279,7 +279,7 @@ export default function Dashboard({
     } else {
         setDataLoading(false);
     }
-  }, [token]);
+  }, [token, refreshAllState]);
 
   // Auto-select valid category from extracted list if the currently selected one is not valid
   useEffect(() => {

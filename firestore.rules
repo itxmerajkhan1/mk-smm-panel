@@ -99,7 +99,7 @@ service cloud.firestore {
 
     // Referrals Program rules
     match /referrals/{referralId} {
-      allow get, list: if isSignedIn() && (resource.data.referrerId == request.auth.uid || isAdmin());
+      allow get, list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
       allow create: if isSignedIn();
       allow update: if isAdmin();
       allow delete: if false;
